@@ -1,36 +1,47 @@
-import useSWR from "swr"
-import { apiClient } from "../api-client"
+import useSWR from 'swr'
+import { apiClient } from '@/lib/api-client'
+import type { Alert, ActivityEvent } from '@/lib/types'
 
 export function useAlerts(patientId?: string, unacknowledgedOnly = false) {
   const { data, error, isLoading, mutate } = useSWR(
-    ["/api/alerts", patientId, unacknowledgedOnly],
+    `/api/alerts?patient_id=${patientId || ''}&unacknowledged=${unacknowledgedOnly}`,
     () => apiClient.getAlerts(patientId, unacknowledgedOnly),
     {
-      refreshInterval: 2000, // Refresh every 2 seconds for real-time updates
-    },
+      refreshInterval: 3000,
+      revalidateOnFocus: true,
+    }
   )
 
   return {
-    alerts: data || [],
+    alerts: (data || []) as Alert[],
     isLoading,
     isError: error,
     mutate,
   }
 }
 
-export function useActivities(patientId: string) {
+export function useActivities(patientId: string | undefined, limit = 50) {
   const { data, error, isLoading, mutate } = useSWR(
-    `/api/alerts/activities/${patientId}`,
-    () => apiClient.getActivities(patientId),
+    patientId ? `/api/alerts/activities/${patientId}?limit=${limit}` : null,
+    patientId ? () => apiClient.getActivities(patientId, limit) : null,
     {
-      refreshInterval: 3000,
-    },
+      refreshInterval: 5000,
+      revalidateOnFocus: true,
+    }
   )
 
   return {
-    activities: data || [],
+    activities: (data || []) as ActivityEvent[],
     isLoading,
     isError: error,
     mutate,
   }
+}
+
+export async function acknowledgeAlert(alertId: string, acknowledgedBy: string) {
+  return apiClient.acknowledgeAlert(alertId, acknowledgedBy)
+}
+
+export async function resolveAlert(alertId: string) {
+  return apiClient.resolveAlert(alertId)
 }

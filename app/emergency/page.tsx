@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { demoPatient } from "@/lib/data"
 import { Shield, X, Clock, Battery, MapPin, Phone, Share2, Bell, User, Shirt, Heart, Sparkles } from "lucide-react"
+import { toast } from "sonner"
 
 export default function EmergencyPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -108,6 +109,43 @@ export default function EmergencyPage() {
     ctx.textBaseline = "middle"
     ctx.fillText("!", centerX, centerY)
   }, [])
+
+  const handleCall911 = () => {
+    toast.error("🚨 Emergency Services: Simulated call to 911", {
+      description: "In production, this would initiate a real emergency call"
+    })
+    // In production: window.location.href = 'tel:911'
+  }
+
+  const handleShareLink = async () => {
+    const shareUrl = `${window.location.origin}/track/${demoPatient.id}`
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Emergency: ${demoPatient.firstName} ${demoPatient.lastName}`,
+          text: 'Track missing person location in real-time',
+          url: shareUrl
+        })
+        toast.success("Live tracking link shared successfully")
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          navigator.clipboard.writeText(shareUrl)
+          toast.success("Live tracking link copied to clipboard")
+        }
+      }
+    } else {
+      await navigator.clipboard.writeText(shareUrl)
+      toast.success("Live tracking link copied to clipboard")
+    }
+  }
+
+  const handleNotifyNetwork = () => {
+    toast.success("Alert sent to emergency contact network", {
+      description: "3 contacts notified: Jane Doe, Dr. Emily Chen, Robert Rigby"
+    })
+    // In production: Call API to send notifications
+  }
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)]">
@@ -255,16 +293,27 @@ export default function EmergencyPage() {
           {/* Action Buttons */}
           <div className="border-t border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-6">
             <div className="flex gap-4">
-              <Button className="flex-1 bg-gradient-to-r from-red-600 to-red-700 py-6 text-lg font-semibold text-white hover:from-red-700 hover:to-red-800">
+              <Button 
+                onClick={handleCall911}
+                className="flex-1 bg-gradient-to-r from-red-600 to-red-700 py-6 text-lg font-semibold text-white hover:from-red-700 hover:to-red-800"
+              >
                 <Phone className="mr-3 h-6 w-6" />
                 CALL 911
                 <span className="ml-2 text-sm opacity-70">Emergency Services</span>
               </Button>
-              <Button variant="outline" className="flex-1 border-[var(--border-default)] py-6 text-lg bg-transparent">
+              <Button 
+                onClick={handleShareLink}
+                variant="outline" 
+                className="flex-1 border-[var(--border-default)] py-6 text-lg bg-transparent"
+              >
                 <Share2 className="mr-3 h-6 w-6" />
                 Share Live Link
               </Button>
-              <Button variant="outline" className="flex-1 border-[var(--border-default)] py-6 text-lg bg-transparent">
+              <Button 
+                onClick={handleNotifyNetwork}
+                variant="outline" 
+                className="flex-1 border-[var(--border-default)] py-6 text-lg bg-transparent"
+              >
                 <Bell className="mr-3 h-6 w-6" />
                 Notify Network
               </Button>

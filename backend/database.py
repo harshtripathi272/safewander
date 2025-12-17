@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import Column, String, Integer, Float, DateTime, Boolean, Text, JSON, Enum as SQLEnum
+from sqlalchemy import Column, String, Integer, Float, DateTime, Boolean, Text, JSON
 from datetime import datetime
 import enum
 
@@ -13,20 +13,20 @@ async_session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_
 class Base(DeclarativeBase):
     pass
 
-# Enums
-class PatientStatus(enum.Enum):
+# Enums - using string values to match database
+class PatientStatus(str, enum.Enum):
     SAFE = "safe"
     MONITORING = "monitoring"
     WARNING = "warning"
     EMERGENCY = "emergency"
 
-class AlertLevel(enum.Enum):
+class AlertLevel(str, enum.Enum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
 
-class AlertType(enum.Enum):
+class AlertType(str, enum.Enum):
     GEOFENCE = "geofence"
     VITALS = "vitals"
     FALL = "fall"
@@ -40,7 +40,7 @@ class Patient(Base):
     id = Column(String, primary_key=True)
     name = Column(String, nullable=False)
     age = Column(Integer, nullable=False)
-    status = Column(SQLEnum(PatientStatus), default=PatientStatus.SAFE)
+    status = Column(String, default="safe")  # Store as string instead of enum
     location = Column(String)
     last_seen = Column(DateTime, default=datetime.utcnow)
     battery = Column(Integer, default=100)
@@ -81,8 +81,8 @@ class Alert(Base):
     
     id = Column(String, primary_key=True)
     patient_id = Column(String, nullable=False)
-    type = Column(SQLEnum(AlertType), nullable=False)
-    level = Column(SQLEnum(AlertLevel), nullable=False)
+    type = Column(String, nullable=False)  # Store as string
+    level = Column(String, nullable=False)  # Store as string
     message = Column(String, nullable=False)
     description = Column(Text)
     location = Column(JSON)

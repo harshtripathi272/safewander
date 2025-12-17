@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -15,6 +15,16 @@ interface LiveMapProps {
 
 export function LiveMap({ patient, zones, className }: LiveMapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  // Auto-refresh every 3 seconds to show live location updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRefreshKey((prev) => prev + 1)
+    }, 3000)
+
+    return () => clearInterval(interval)
+  }, [])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -116,7 +126,7 @@ export function LiveMap({ patient, zones, className }: LiveMapProps) {
     ctx.arc(patientX, patientY - 5, 6, 0, Math.PI * 2)
     ctx.fill()
     ctx.fillRect(patientX - 4, patientY + 2, 8, 10)
-  }, [patient, zones])
+  }, [patient, zones, refreshKey])
 
   return (
     <Card className={`border-[var(--border-subtle)] bg-[var(--bg-secondary)] ${className}`}>

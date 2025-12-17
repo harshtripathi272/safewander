@@ -1,9 +1,23 @@
+"use client"
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Phone, Navigation, AlertTriangle } from "lucide-react"
 import Link from "next/link"
+import { toast } from "sonner"
 
 export function QuickActions() {
+  const handleCall = () => {
+    // In a real app, this would trigger a phone call
+    toast.success("Calling primary contact: (555) 123-4567")
+  }
+
+  const handleNavigate = () => {
+    // In a real app, this would open maps with patient location
+    toast.success("Opening navigation to patient's location")
+    // Example: window.open(`https://maps.google.com/?q=37.7749,-122.4194`)
+  }
+
   return (
     <Card className="border-[var(--border-subtle)] bg-[var(--bg-secondary)]">
       <CardHeader className="pb-4">
@@ -18,6 +32,7 @@ export function QuickActions() {
           </Button>
         </Link>
         <Button
+          onClick={handleCall}
           variant="outline"
           className="w-full border-[var(--border-default)] bg-transparent text-[var(--text-primary)]"
         >
@@ -25,6 +40,7 @@ export function QuickActions() {
           Call
         </Button>
         <Button
+          onClick={handleNavigate}
           variant="outline"
           className="w-full border-[var(--border-default)] bg-transparent text-[var(--text-primary)]"
         >

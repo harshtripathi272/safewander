@@ -1,0 +1,13 @@
+{
+  "tailwindCSS.experimental.classRegex": [],
+  "tailwindCSS.lint.cssConflict": "warning",
+  "tailwindCSS.lint.invalidApply": "error",
+  "tailwindCSS.lint.invalidConfigPath": "error",
+  "tailwindCSS.lint.invalidScreen": "error",
+  "tailwindCSS.lint.invalidTailwindDirective": "error",
+  "tailwindCSS.lint.invalidVariant": "error",
+  "tailwindCSS.lint.recommendedVariantOrder": "warning",
+  // Disable the new Tailwind v4 syntax suggestions
+  "css.lint.unknownProperties": "ignore",
+  "tailwindCSS.experimental.configFile": null
+}

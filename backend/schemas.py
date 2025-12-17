@@ -47,6 +47,86 @@ class PatientResponse(PatientBase):
 
     class Config:
         from_attributes = True
+        
+    # Transform to frontend format
+    def dict(self, **kwargs):
+        data = super().model_dump(**kwargs)
+        
+        # Split name into firstName and lastName
+        name_parts = data.get('name', '').split(' ', 1)
+        first_name = name_parts[0] if name_parts else ''
+        last_name = name_parts[1] if len(name_parts) > 1 else ''
+        
+        # Parse location string to lat/lng
+        location_str = data.get('location', '40.7580,-73.9855')
+        lat, lng = 40.7580, -73.9855
+        if location_str and ',' in location_str:
+            try:
+                parts = location_str.split(',')
+                lat = float(parts[0])
+                lng = float(parts[1])
+            except:
+                pass
+        
+        # Get status value (handle both string and enum)
+        status_value = data.get('status')
+        if hasattr(status_value, 'value'):
+            status_value = status_value.value
+        
+        # Transform to frontend format
+        return {
+            "id": data.get('id'),
+            "firstName": first_name,
+            "lastName": last_name,
+            "name": data.get('name'),
+            "photo": data.get('photo_url') or '/placeholder-user.jpg',
+            "dateOfBirth": "1947-01-01",
+            "height": "5'6\"",
+            "weight": "150 lbs",
+            "eyeColor": "Brown",
+            "hairColor": "Gray",
+            "distinguishingFeatures": data.get('behavioral_patterns', {}).get('distinguishing_features', 'None noted'),
+            "diagnosis": data.get('medical_info', {}).get('diagnosis', 'Unknown'),
+            "conditions": data.get('medical_info', {}).get('medical_history', []),
+            "medications": [
+                {"name": med, "dosage": "As prescribed", "frequency": "Daily"}
+                for med in data.get('medical_info', {}).get('medications', [])
+            ],
+            "allergies": data.get('medical_info', {}).get('allergies', []),
+            "bloodType": "O+",
+            "wanderingTriggers": data.get('behavioral_patterns', {}).get('trigger_locations', []),
+            "calmingStrategies": ["Gentle redirection", "Favorite music"],
+            "communicationAbility": "limited",
+            "mobilityLevel": "medium",
+            "device": {
+                "id": f"DEV-{data.get('id')}",
+                "name": "GPS Tracker",
+                "batteryLevel": data.get('battery', 100),
+                "signalStrength": "strong" if data.get('battery', 100) > 20 else "weak",
+                "lastUpdate": data.get('last_seen', datetime.utcnow()).isoformat() if isinstance(data.get('last_seen'), datetime) else str(data.get('last_seen'))
+            },
+            "currentPosition": {"lat": lat, "lng": lng},
+            "currentZone": "Home",
+            "status": status_value,
+            "emergencyContacts": [
+                {
+                    "id": f"EC-{i}",
+                    "name": contact.get('name', ''),
+                    "relationship": contact.get('relationship', ''),
+                    "phone": contact.get('phone', ''),
+                    "isPrimary": i == 0
+                }
+                for i, contact in enumerate(data.get('emergency_contacts', []))
+            ],
+            # Keep original fields for compatibility
+            "age": data.get('age'),
+            "location": location_str,
+            "last_seen": data.get('last_seen').isoformat() if isinstance(data.get('last_seen'), datetime) else str(data.get('last_seen')),
+            "battery": data.get('battery'),
+            "active_alerts": data.get('active_alerts'),
+            "created_at": data.get('created_at').isoformat() if isinstance(data.get('created_at'), datetime) else str(data.get('created_at')),
+            "updated_at": data.get('updated_at').isoformat() if isinstance(data.get('updated_at'), datetime) else str(data.get('updated_at')),
+        }
 
 # Location schemas
 class LocationCreate(BaseModel):

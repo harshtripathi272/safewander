@@ -1,16 +1,18 @@
 "use client"
 
 import useSWR from "swr"
-import { apiClient } from "../api-client"
+import { apiClient } from "@/lib/api-client"
+import type { Zone } from "@/lib/types"
 import { useEffect, useState } from "react"
 
-export function usePatientLocations(patientId: string | null, limit = 100) {
+export function useLocations(patientId: string | undefined, limit = 100) {
   const { data, error, isLoading, mutate } = useSWR(
-    patientId ? `/api/tracking/locations/${patientId}` : null,
-    () => (patientId ? apiClient.getPatientLocations(patientId, limit) : null),
+    patientId ? `/api/tracking/locations/${patientId}?limit=${limit}` : null,
+    patientId ? () => apiClient.getPatientLocations(patientId, limit) : null,
     {
       refreshInterval: 5000,
-    },
+      revalidateOnFocus: true,
+    }
   )
 
   return {
@@ -21,17 +23,18 @@ export function usePatientLocations(patientId: string | null, limit = 100) {
   }
 }
 
-export function useZones(patientId?: string) {
+export function useZones(patientId: string | undefined) {
   const { data, error, isLoading, mutate } = useSWR(
-    ["/api/tracking/zones", patientId],
-    () => apiClient.getZones(patientId),
+    patientId ? `/api/tracking/zones?patient_id=${patientId}` : null,
+    patientId ? () => apiClient.getZones(patientId) : null,
     {
       refreshInterval: 10000,
-    },
+      revalidateOnFocus: true,
+    }
   )
 
   return {
-    zones: data || [],
+    zones: (data || []) as Zone[],
     isLoading,
     isError: error,
     mutate,

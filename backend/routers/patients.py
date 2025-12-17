@@ -8,14 +8,15 @@ import uuid
 
 router = APIRouter()
 
-@router.get("/", response_model=List[PatientResponse])
+@router.get("/")
 async def get_patients(db: AsyncSession = Depends(get_db)):
     """Get all patients"""
     result = await db.execute(select(Patient))
     patients = result.scalars().all()
-    return patients
+    # Convert to frontend format - no response_model validation
+    return [PatientResponse.model_validate(p).dict() for p in patients]
 
-@router.get("/{patient_id}", response_model=PatientResponse)
+@router.get("/{patient_id}")
 async def get_patient(patient_id: str, db: AsyncSession = Depends(get_db)):
     """Get a specific patient by ID"""
     result = await db.execute(select(Patient).where(Patient.id == patient_id))
@@ -24,7 +25,8 @@ async def get_patient(patient_id: str, db: AsyncSession = Depends(get_db)):
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
     
-    return patient
+    # Convert to frontend format - no response_model validation
+    return PatientResponse.model_validate(patient).dict()
 
 @router.post("/", response_model=PatientResponse)
 async def create_patient(patient: PatientCreate, db: AsyncSession = Depends(get_db)):

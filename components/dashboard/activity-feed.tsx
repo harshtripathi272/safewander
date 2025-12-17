@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import type { ActivityEvent } from "@/lib/types"
 import { cn } from "@/lib/utils"
-import { MapPin, Bell, Heart, CheckCircle } from "lucide-react"
+import { MapPin, Bell, Heart, CheckCircle, Activity } from "lucide-react"
 import Link from "next/link"
 
 interface ActivityFeedProps {
@@ -46,13 +46,14 @@ export function ActivityFeed({ activities }: ActivityFeedProps) {
       </CardHeader>
       <CardContent className="space-y-4">
         {activities.slice(0, 5).map((activity) => {
-          const Icon = activityIcons[activity.type]
+          const Icon = activityIcons[activity.type] || Activity // Fallback to Activity icon
+          const colorClass = activityColors[activity.type] || "text-blue-400 bg-blue-500/15" // Fallback color
           return (
             <div key={activity.id} className="flex items-start gap-3">
               <div
                 className={cn(
                   "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
-                  activityColors[activity.type],
+                  colorClass,
                 )}
               >
                 <Icon className="h-4 w-4" />
