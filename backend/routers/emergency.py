@@ -74,7 +74,7 @@ async def create_emergency(emergency: EmergencyCreate, db: AsyncSession = Depend
         patient_id=emergency.patient_id,
         type="emergency",
         description="Emergency mode activated",
-        metadata={"emergency_id": db_emergency.id}
+        extra_data={"emergency_id": db_emergency.id}
     )
     db.add(activity)
     

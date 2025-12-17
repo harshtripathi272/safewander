@@ -88,7 +88,7 @@ class AlertCreate(BaseModel):
     message: str
     description: Optional[str] = None
     location: Optional[Dict[str, float]] = None
-    metadata: Optional[Dict[str, Any]] = None
+    extra_data: Optional[Dict[str, Any]] = None
 
 class AlertResponse(AlertCreate):
     id: str
@@ -141,7 +141,7 @@ class ActivityCreate(BaseModel):
     patient_id: str
     type: str
     description: str
-    metadata: Optional[Dict[str, Any]] = None
+    extra_data: Optional[Dict[str, Any]] = None
 
 class ActivityResponse(ActivityCreate):
     id: int

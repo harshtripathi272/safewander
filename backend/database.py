@@ -92,7 +92,7 @@ class Alert(Base):
     acknowledged_by = Column(String)
     resolved = Column(Boolean, default=False)
     resolved_at = Column(DateTime)
-    metadata = Column(JSON)
+    extra_data = Column(JSON)
 
 class Emergency(Base):
     __tablename__ = "emergencies"
@@ -127,7 +127,7 @@ class Activity(Base):
     patient_id = Column(String, nullable=False)
     type = Column(String, nullable=False)  # alert, movement, status_change, etc.
     description = Column(String, nullable=False)
-    metadata = Column(JSON)
+    extra_data = Column(JSON)
     timestamp = Column(DateTime, default=datetime.utcnow)
 
 class Settings(Base):

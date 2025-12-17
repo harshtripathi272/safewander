@@ -66,7 +66,7 @@ async def create_alert(alert: AlertCreate, db: AsyncSession = Depends(get_db)):
         patient_id=alert.patient_id,
         type="alert",
         description=f"{alert.type.value} alert: {alert.message}",
-        metadata={"alert_id": db_alert.id, "level": alert.level.value}
+        extra_data={"alert_id": db_alert.id, "level": alert.level.value}
     )
     db.add(activity)
     

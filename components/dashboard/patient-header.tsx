@@ -18,7 +18,8 @@ const statusConfig = {
 }
 
 export function PatientHeader({ patient }: PatientHeaderProps) {
-  const statusInfo = statusConfig[patient.status]
+  const statusInfo = statusConfig[patient?.status ?? "safe"];
+  const device = patient?.device ?? { batteryLevel: 0, signalStrength: "" };
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-6">
@@ -27,17 +28,17 @@ export function PatientHeader({ patient }: PatientHeaderProps) {
           <Avatar
             className={cn(
               "h-16 w-16 border-[3px]",
-              patient.status === "safe"
+              patient?.status === "safe"
                 ? "border-[var(--status-safe)] animate-pulse-safe"
-                : patient.status === "emergency"
+                : patient?.status === "emergency"
                   ? "border-[var(--status-emergency)] animate-pulse-emergency"
                   : "border-[var(--status-warning)] animate-pulse-warning",
             )}
           >
-            <AvatarImage src={patient.photo || "/placeholder.svg"} />
+            <AvatarImage src={patient?.photo || "/placeholder.svg"} />
             <AvatarFallback>
-              {patient.firstName[0]}
-              {patient.lastName[0]}
+              {patient?.firstName?.[0] || ""}
+              {patient?.lastName?.[0] || ""}
             </AvatarFallback>
           </Avatar>
         </div>
@@ -45,7 +46,7 @@ export function PatientHeader({ patient }: PatientHeaderProps) {
         <div>
           <div className="flex items-center gap-3">
             <h2 className="text-2xl font-semibold text-[var(--text-primary)]">
-              {patient.firstName} {patient.lastName}
+              {patient?.firstName || ""} {patient?.lastName || ""}
             </h2>
             <Badge className={cn("uppercase tracking-wide", statusInfo.className)}>
               <span className="mr-1.5 inline-block h-2 w-2 animate-pulse rounded-full bg-current" />
@@ -66,14 +67,14 @@ export function PatientHeader({ patient }: PatientHeaderProps) {
             <Battery
               className={cn(
                 "h-4 w-4",
-                patient.device.batteryLevel > 50
+                device.batteryLevel > 50
                   ? "text-[var(--status-safe)]"
-                  : patient.device.batteryLevel > 20
+                  : device.batteryLevel > 20
                     ? "text-[var(--status-warning)]"
                     : "text-[var(--status-urgent)]",
               )}
             />
-            <span className="text-[var(--text-secondary)]">{patient.device.batteryLevel}%</span>
+            <span className="text-[var(--text-secondary)]">{device.batteryLevel}%</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Signal className="h-4 w-4 text-[var(--status-safe)]" />
