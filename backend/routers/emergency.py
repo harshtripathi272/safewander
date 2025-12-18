@@ -7,6 +7,10 @@ from schemas import EmergencyCreate, EmergencyResponse
 from datetime import datetime
 import uuid
 
+# Import algorithm modules
+from baseline import get_baseline
+from config import MOBILITY_FACTORS, TERRAIN_FACTOR
+
 router = APIRouter()
 
 @router.get("/", response_model=List[EmergencyResponse])
@@ -49,14 +53,38 @@ async def create_emergency(emergency: EmergencyCreate, db: AsyncSession = Depend
         raise HTTPException(status_code=400, detail="Emergency already active for this patient")
     
     # Create emergency
+    # Calculate search radius using baseline speed and time missing
+    baseline = await get_baseline(db, emergency.patient_id)
+    
+    # Get patient for mobility level
+    patient_result = await db.execute(select(Patient).where(Patient.id == emergency.patient_id))
+    patient = patient_result.scalar_one_or_none()
+    
+    # Time missing calculation
+    time_missing = 0
+    if patient and patient.last_seen:
+        time_missing = (datetime.utcnow() - patient.last_seen).total_seconds()
+    
+    # Search radius = avg_speed * time_missing * mobility_factor * terrain_factor
+    avg_speed = baseline.get("avg_speed", 0.8)  # m/s
+    mobility_level = patient.mobility_level if patient else "medium"
+    mobility_factor = MOBILITY_FACTORS.get(mobility_level, 1.0)
+    
+    estimated_radius = avg_speed * time_missing * mobility_factor * TERRAIN_FACTOR
+    estimated_radius = max(estimated_radius, 100)  # Minimum 100m
+    estimated_radius = min(estimated_radius, 5000)  # Maximum 5km
+    
+    # Use estimated radius if not explicitly provided
+    search_radius = emergency.search_radius if emergency.search_radius else estimated_radius
+    
     db_emergency = Emergency(
         id=str(uuid.uuid4()),
         patient_id=emergency.patient_id,
         last_known_location=emergency.last_known_location,
-        search_radius=emergency.search_radius,
+        search_radius=search_radius,
         timeline=[{
             "time": datetime.utcnow().isoformat(),
-            "event": "Emergency activated",
+            "event": f"Emergency activated. Estimated search radius: {int(estimated_radius)}m",
             "type": "system"
         }]
     )

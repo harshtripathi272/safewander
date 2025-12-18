@@ -5,7 +5,14 @@ from datetime import datetime
 import enum
 
 # Database URL - using SQLite for simplicity, can be changed to PostgreSQL
-DATABASE_URL = "sqlite+aiosqlite:///./safewander.db"
+# Use absolute path to ensure consistency regardless of where scripts are run from
+from pathlib import Path
+import os
+
+# Get the directory where this file (database.py) is located
+BASE_DIR = Path(__file__).resolve().parent
+DATABASE_PATH = BASE_DIR / "safewander.db"
+DATABASE_URL = f"sqlite+aiosqlite:///{DATABASE_PATH}"
 
 engine = create_async_engine(DATABASE_URL, echo=True)
 async_session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -51,6 +58,12 @@ class Patient(Base):
     photo_url = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # FSM state tracking
+    fsm_state = Column(String, default="safe")  # safe, advisory, warning, urgent, emergency
+    state_entered_at = Column(DateTime, default=datetime.utcnow)
+    risk_score = Column(Integer, default=0)  # 0-100
+    last_safe_zone_exit = Column(DateTime)  # When patient left safe zone
+    mobility_level = Column(String, default="medium")  # high, medium, low, wheelchair
 
 class Location(Base):
     __tablename__ = "locations"
@@ -70,10 +83,12 @@ class Zone(Base):
     id = Column(String, primary_key=True)
     patient_id = Column(String, nullable=False)
     name = Column(String, nullable=False)
-    type = Column(String)  # safe, warning, restricted
-    coordinates = Column(JSON)  # Array of lat/lng points
+    type = Column(String)  # safe, buffer, danger, restricted
+    coordinates = Column(JSON)  # Array of lat/lng points or center point
     radius = Column(Float)  # For circular zones
     active = Column(Boolean, default=True)
+    is_auto_generated = Column(Boolean, default=False)  # Buffer zones are auto-generated
+    risk_weight = Column(Integer, default=0)  # Additional risk weight for this zone
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class Alert(Base):
@@ -150,6 +165,20 @@ class Report(Base):
     generated_by = Column(String)
     data = Column(JSON)
     file_path = Column(String)
+
+class Baseline(Base):
+    """Behavioral baseline for patients - rolling averages."""
+    __tablename__ = "baselines"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    patient_id = Column(String, unique=True, nullable=False)
+    avg_speed = Column(Float, default=0.8)  # m/s
+    avg_duration = Column(Float, default=900)  # seconds
+    std_speed = Column(Float, default=0.2)
+    std_duration = Column(Float, default=300)
+    sample_count = Column(Integer, default=0)
+    common_walk_hours = Column(JSON)  # List of common walking hours
+    updated_at = Column(DateTime, default=datetime.utcnow)
 
 async def get_db():
     async with async_session_maker() as session:

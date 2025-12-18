@@ -20,7 +20,7 @@ async def get_patients(db: AsyncSession = Depends(get_db)):
     # Convert to frontend format and add current_position
     patient_list = []
     for p in patients:
-        patient_dict = PatientResponse.model_validate(p).model_dump()
+        patient_dict = PatientResponse.model_validate(p).dict()
         
         # Get latest location for this patient
         location_result = await db.execute(
@@ -54,7 +54,7 @@ async def get_patient(patient_id: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Patient not found")
     
     # Convert to frontend format
-    patient_dict = PatientResponse.model_validate(patient).model_dump()
+    patient_dict = PatientResponse.model_validate(patient).dict()
     
     # Get latest location
     location_result = await db.execute(

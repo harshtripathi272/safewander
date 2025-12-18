@@ -91,30 +91,29 @@ export default function MapPage() {
 
         {/* Full Map */}
         <div className="relative h-[calc(100vh-220px)] overflow-hidden rounded-xl border border-[var(--border-subtle)]">
-          {typeof window !== 'undefined' && (
-            <MapContainer
-              center={[patientLat, patientLng]}
-              zoom={15}
-              style={{ height: "100%", width: "100%", zIndex: 1 }}
-              zoomControl={false}
-            >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              
-              <MapUpdaterComponent center={[patientLat, patientLng]} />
-              <MapIcons 
-                homeLat={homeLat}
-                homeLng={homeLng}
-                patientLat={patientLat}
-                patientLng={patientLng}
-                patient={demoPatient}
-                zones={demoZones}
-                zoneColors={zoneColors}
-              />
-            </MapContainer>
-          )}
+          <MapContainer
+            center={[patientLat, patientLng]}
+            zoom={15}
+            style={{ height: "100%", width: "100%", zIndex: 1 }}
+            zoomControl={false}
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+
+            <MapUpdaterComponent center={[patientLat, patientLng]} />
+            <MapIcons
+              homeLat={homeLat}
+              homeLng={homeLng}
+              patientLat={patientLat}
+              patientLng={patientLng}
+              patient={demoPatient}
+              zones={demoZones}
+              zoneColors={zoneColors}
+            />
+          </MapContainer>
+
 
           {/* Live Tracking Card */}
           <Card className="absolute bottom-6 left-6 z-[1000] w-80 border-[var(--border-default)] bg-[var(--bg-secondary)]/95 backdrop-blur-sm shadow-lg">

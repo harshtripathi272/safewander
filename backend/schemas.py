@@ -10,6 +10,14 @@ class PatientStatusEnum(str, Enum):
     WARNING = "warning"
     EMERGENCY = "emergency"
 
+# FSM states for alert escalation
+class FSMStateEnum(str, Enum):
+    SAFE = "safe"
+    ADVISORY = "advisory"
+    WARNING = "warning"
+    URGENT = "urgent"
+    EMERGENCY = "emergency"
+
 class AlertLevelEnum(str, Enum):
     LOW = "low"
     MEDIUM = "medium"
@@ -45,6 +53,11 @@ class PatientResponse(PatientBase):
     created_at: datetime
     updated_at: datetime
     current_position: Optional[Dict[str, float]] = None  # {lat, lng}
+    # FSM state fields
+    fsm_state: Optional[str] = "safe"
+    risk_score: Optional[int] = 0
+    state_entered_at: Optional[datetime] = None
+    mobility_level: Optional[str] = "medium"
 
     class Config:
         from_attributes = True
@@ -127,6 +140,11 @@ class PatientResponse(PatientBase):
             "active_alerts": data.get('active_alerts'),
             "created_at": data.get('created_at').isoformat() if isinstance(data.get('created_at'), datetime) else str(data.get('created_at')),
             "updated_at": data.get('updated_at').isoformat() if isinstance(data.get('updated_at'), datetime) else str(data.get('updated_at')),
+            # FSM state fields
+            "fsm_state": data.get('fsm_state', 'safe'),
+            "risk_score": data.get('risk_score', 0),
+            "state_entered_at": data.get('state_entered_at').isoformat() if isinstance(data.get('state_entered_at'), datetime) else None,
+            "mobility_level": data.get('mobility_level', 'medium'),
         }
 
 # Location schemas

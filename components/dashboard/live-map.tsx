@@ -38,11 +38,11 @@ interface LiveMapProps {
 // Component to handle map updates
 function MapUpdater({ center }: { center: [number, number] }) {
   const map = useMap()
-  
+
   useEffect(() => {
     map.setView(center, map.getZoom())
   }, [center, map])
-  
+
   return null
 }
 
@@ -64,10 +64,12 @@ export function LiveMap({ patient, zones, className }: LiveMapProps) {
   const homeLng = -73.9855
 
   const zoneColors: Record<string, string> = {
-    safe: "#10b981",
-    trusted: "#3b82f6",
-    routine: "#8b5cf6",
-    danger: "#ef4444",
+    safe: "#10b981",       // green
+    buffer: "#3b82f6",     // blue (auto-generated)
+    danger: "#ef4444",     // red
+    restricted: "#f97316", // orange
+    trusted: "#3b82f6",    // blue (legacy)
+    routine: "#8b5cf6",    // purple (legacy)
   }
 
   return (
@@ -83,7 +85,7 @@ export function LiveMap({ patient, zones, className }: LiveMapProps) {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          
+
           <MapUpdater center={[patientLat, patientLng]} />
 
           {/* Home marker */}
@@ -114,7 +116,7 @@ export function LiveMap({ patient, zones, className }: LiveMapProps) {
           {zones.map((zone) => {
             if (!zone.center) return null
             const color = zoneColors[zone.type] || zoneColors.safe
-            
+
             return (
               <Circle
                 key={zone.id}
