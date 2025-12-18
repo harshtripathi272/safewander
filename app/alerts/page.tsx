@@ -134,28 +134,29 @@ export default function AlertsPage() {
               <Avatar className="h-14 w-14 border-2 border-[var(--status-safe)]">
                 <AvatarImage
                   src={
-                    primaryPatient.photo_url && primaryPatient.photo_url !== "string"
-                      ? primaryPatient.photo_url
+                    primaryPatient.photo && primaryPatient.photo !== "string"
+                      ? primaryPatient.photo
                       : "/placeholder.svg"
                   }
                 />
                 <AvatarFallback>
-                  {primaryPatient.name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")}
+                  {primaryPatient.firstName[0]}
+                  {primaryPatient.lastName[0]}
                 </AvatarFallback>
               </Avatar>
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-semibold text-[var(--text-primary)]">{primaryPatient.name}</h2>
+                  <h2 className="text-lg font-semibold text-[var(--text-primary)]">{primaryPatient.firstName} {primaryPatient.lastName}</h2>
                   <Badge className="bg-[var(--accent-primary-muted)] text-[var(--status-safe)] uppercase">
                     Monitoring Active
                   </Badge>
                 </div>
-                <p className="text-sm text-[var(--text-secondary)]">
-                  {primaryPatient.location} • Battery: {primaryPatient.battery}%
-                </p>
+                {/* Battery status and location */}
+                <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                  <span>Zone: {primaryPatient.currentZone}</span>
+                  <span>•</span>
+                  <span>Battery: {primaryPatient.device.batteryLevel}%</span>
+                </div>
               </div>
             </div>
             <div className="flex gap-2">
