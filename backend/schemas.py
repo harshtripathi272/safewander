@@ -44,6 +44,7 @@ class PatientResponse(PatientBase):
     active_alerts: int
     created_at: datetime
     updated_at: datetime
+    current_position: Optional[Dict[str, float]] = None  # {lat, lng}
 
     class Config:
         from_attributes = True

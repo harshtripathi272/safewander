@@ -35,7 +35,13 @@ export function PatientHeader({ patient }: PatientHeaderProps) {
                   : "border-[var(--status-warning)] animate-pulse-warning",
             )}
           >
-            <AvatarImage src={patient?.photo || "/placeholder.svg"} />
+            <AvatarImage
+              src={
+                patient?.photo && patient.photo !== "string"
+                  ? patient.photo
+                  : "/placeholder.svg"
+              }
+            />
             <AvatarFallback>
               {patient?.firstName?.[0] || ""}
               {patient?.lastName?.[0] || ""}

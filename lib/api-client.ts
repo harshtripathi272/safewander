@@ -31,11 +31,32 @@ class ApiClient {
 
   // Patient APIs
   async getPatients(): Promise<Patient[]> {
-    return this.request<Patient[]>("/api/patients")
+    const data = await this.request<any[]>("/api/patients")
+    // Transform snake_case from backend to camelCase for frontend
+    return data.map(p => ({
+      ...p,
+      // Map backend fields to frontend expected fields
+      firstName: p.firstName || p.name?.split(' ')[0] || '',
+      lastName: p.lastName || p.name?.split(' ').slice(1).join(' ') || '',
+      photo: p.photo || p.photo_url || '',
+      currentPosition: p.currentPosition || p.current_position || { lat: 40.7580, lng: -73.9855 },
+      device: p.device || { batteryLevel: p.battery || 100, signalStrength: 'strong' },
+      status: p.status || 'safe',
+    })) as Patient[]
   }
 
   async getPatient(id: string): Promise<Patient> {
-    return this.request<Patient>(`/api/patients/${id}`)
+    const p = await this.request<any>(`/api/patients/${id}`)
+    // Transform snake_case from backend to camelCase for frontend
+    return {
+      ...p,
+      firstName: p.firstName || p.name?.split(' ')[0] || '',
+      lastName: p.lastName || p.name?.split(' ').slice(1).join(' ') || '',
+      photo: p.photo || p.photo_url || '',
+      currentPosition: p.currentPosition || p.current_position || { lat: 40.7580, lng: -73.9855 },
+      device: p.device || { batteryLevel: p.battery || 100, signalStrength: 'strong' },
+      status: p.status || 'safe',
+    } as Patient
   }
 
   async createPatient(data: any): Promise<Patient> {

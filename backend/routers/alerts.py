@@ -77,10 +77,12 @@ async def create_alert(alert: AlertCreate, db: AsyncSession = Depends(get_db)):
 @router.put("/{alert_id}/acknowledge")
 async def acknowledge_alert(
     alert_id: str,
-    acknowledged_by: str,
+    request_body: dict,
     db: AsyncSession = Depends(get_db)
 ):
     """Acknowledge an alert"""
+    acknowledged_by = request_body.get("acknowledged_by", "Unknown")
+    
     result = await db.execute(select(Alert).where(Alert.id == alert_id))
     alert = result.scalar_one_or_none()
     
@@ -92,7 +94,8 @@ async def acknowledge_alert(
     alert.acknowledged_by = acknowledged_by
     
     await db.commit()
-    return {"message": "Alert acknowledged successfully"}
+    await db.refresh(alert)
+    return alert
 
 @router.put("/{alert_id}/resolve")
 async def resolve_alert(alert_id: str, db: AsyncSession = Depends(get_db)):
@@ -118,7 +121,8 @@ async def resolve_alert(alert_id: str, db: AsyncSession = Depends(get_db)):
             patient.status = "safe"
     
     await db.commit()
-    return {"message": "Alert resolved successfully"}
+    await db.refresh(alert)
+    return alert
 
 @router.get("/activities/{patient_id}", response_model=List[ActivityResponse])
 async def get_activities(

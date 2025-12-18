@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils"
 import { usePatients } from "@/lib/hooks/use-patients"
 import { useAlerts } from "@/lib/hooks/use-alerts"
 import { apiClient } from "@/lib/api-client"
+import { SimulationPanel } from "@/components/dashboard/simulation-panel"
 import { Bell, MapPin, Heart, Check, AlertTriangle, History, Video, Activity } from "lucide-react"
 
 const alertIcons: Record<string, any> = {
@@ -58,20 +59,45 @@ export default function AlertsPage() {
   const handleResolveAlert = async () => {
     if (!selectedAlert) return
     try {
-      await apiClient.resolveAlert(selectedAlert.id)
-      mutate() // Refresh alerts
+      console.log('[Alerts] Resolving alert:', selectedAlert.id)
+      const result = await apiClient.resolveAlert(selectedAlert.id)
+      console.log('[Alerts] Resolve result:', result)
+
+      // Force immediate revalidation
+      await mutate(undefined, { revalidate: true })
+
+      // Update selected alert to show resolved state immediately
+      setSelectedAlert({ ...selectedAlert, resolved: true, resolved_at: new Date().toISOString() })
+
+      console.log('[Alerts] Alert resolved successfully')
     } catch (error) {
-      console.error("[v0] Error resolving alert:", error)
+      console.error("[Alerts] Error resolving alert:", error)
+      alert(`Failed to resolve alert: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
   const handleAcknowledgeAlert = async () => {
     if (!selectedAlert) return
     try {
-      await apiClient.acknowledgeAlert(selectedAlert.id, "Admin")
-      mutate() // Refresh alerts
+      console.log('[Alerts] Acknowledging alert:', selectedAlert.id)
+      const result = await apiClient.acknowledgeAlert(selectedAlert.id, "Admin")
+      console.log('[Alerts] Acknowledge result:', result)
+
+      // Force immediate revalidation
+      await mutate(undefined, { revalidate: true })
+
+      // Update selected alert to show acknowledged state immediately
+      setSelectedAlert({
+        ...selectedAlert,
+        acknowledged: true,
+        acknowledged_at: new Date().toISOString(),
+        acknowledged_by: "Admin"
+      })
+
+      console.log('[Alerts] Alert acknowledged successfully')
     } catch (error) {
-      console.error("[v0] Error acknowledging alert:", error)
+      console.error("[Alerts] Error acknowledging alert:", error)
+      alert(`Failed to acknowledge alert: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
 
@@ -106,7 +132,13 @@ export default function AlertsPage() {
           <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4">
             <div className="flex items-center gap-4">
               <Avatar className="h-14 w-14 border-2 border-[var(--status-safe)]">
-                <AvatarImage src={primaryPatient.photo_url || "/placeholder.svg"} />
+                <AvatarImage
+                  src={
+                    primaryPatient.photo_url && primaryPatient.photo_url !== "string"
+                      ? primaryPatient.photo_url
+                      : "/placeholder.svg"
+                  }
+                />
                 <AvatarFallback>
                   {primaryPatient.name
                     .split(" ")
@@ -139,7 +171,7 @@ export default function AlertsPage() {
           </CardContent>
         </Card>
 
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-6 lg:grid-cols-3">
           {/* Live Alerts Panel */}
           <Card className="border-[var(--border-subtle)] bg-[var(--bg-secondary)]">
             <CardHeader className="flex flex-row items-center justify-between pb-4">
@@ -309,6 +341,11 @@ export default function AlertsPage() {
                 )}
               </CardContent>
             </Card>
+          )}
+
+          {/* Simulation Panel - Only in development */}
+          {process.env.NODE_ENV === 'development' && (
+            <SimulationPanel patientId={primaryPatient.id} />
           )}
         </div>
       </div>

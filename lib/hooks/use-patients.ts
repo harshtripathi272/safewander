@@ -7,7 +7,7 @@ export function usePatients() {
     '/api/patients',
     () => apiClient.getPatients(),
     {
-      refreshInterval: 5000,
+      refreshInterval: 1000, // Fast refresh for real-time map movement
       revalidateOnFocus: true,
     }
   )

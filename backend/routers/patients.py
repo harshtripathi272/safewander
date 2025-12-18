@@ -11,22 +11,67 @@ router = APIRouter()
 @router.get("/")
 async def get_patients(db: AsyncSession = Depends(get_db)):
     """Get all patients"""
+    from database import Location
+    from sqlalchemy import desc
+    
     result = await db.execute(select(Patient))
     patients = result.scalars().all()
-    # Convert to frontend format - no response_model validation
-    return [PatientResponse.model_validate(p).dict() for p in patients]
+    
+    # Convert to frontend format and add current_position
+    patient_list = []
+    for p in patients:
+        patient_dict = PatientResponse.model_validate(p).model_dump()
+        
+        # Get latest location for this patient
+        location_result = await db.execute(
+            select(Location)
+            .where(Location.patient_id == p.id)
+            .order_by(desc(Location.timestamp))
+            .limit(1)
+        )
+        latest_location = location_result.scalar_one_or_none()
+        
+        if latest_location:
+            patient_dict['current_position'] = {
+                'lat': latest_location.latitude,
+                'lng': latest_location.longitude
+            }
+        
+        patient_list.append(patient_dict)
+    
+    return patient_list
 
 @router.get("/{patient_id}")
 async def get_patient(patient_id: str, db: AsyncSession = Depends(get_db)):
     """Get a specific patient by ID"""
+    from database import Location
+    from sqlalchemy import desc
+    
     result = await db.execute(select(Patient).where(Patient.id == patient_id))
     patient = result.scalar_one_or_none()
     
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
     
-    # Convert to frontend format - no response_model validation
-    return PatientResponse.model_validate(patient).dict()
+    # Convert to frontend format
+    patient_dict = PatientResponse.model_validate(patient).model_dump()
+    
+    # Get latest location
+    location_result = await db.execute(
+        select(Location)
+        .where(Location.patient_id == patient_id)
+        .order_by(desc(Location.timestamp))
+        .limit(1)
+    )
+    latest_location = location_result.scalar_one_or_none()
+    
+    if latest_location:
+        patient_dict['current_position'] = {
+            'lat': latest_location.latitude,
+            'lng': latest_location.longitude
+        }
+    
+    return patient_dict
 
 @router.post("/", response_model=PatientResponse)
 async def create_patient(patient: PatientCreate, db: AsyncSession = Depends(get_db)):

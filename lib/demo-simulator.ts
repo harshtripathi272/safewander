@@ -8,52 +8,111 @@ export class DemoSimulator {
   private intervalId: NodeJS.Timeout | null = null
 
   /**
-   * Simulate a patient wandering scenario
-   * This will:
-   * 1. Create a zone exit alert
-   * 2. Escalate to urgent
-   * 3. Trigger emergency after delay
+   * Simulate a patient wandering scenario with VISIBLE map movement
+   * The patient marker will move on the map in real-time
    */
-  async simulateWanderingIncident(patientId: string) {
-    console.log('🎬 Starting wandering incident simulation...')
+  async simulateWanderingIncident(patientId: string, onLocationUpdate?: (lat: number, lng: number) => void) {
+    console.log('🎬 Starting wandering incident simulation with MAP MOVEMENT...')
 
-    // Step 1: Advisory alert (patient approaching boundary)
-    await apiClient.createAlert({
-      patient_id: patientId,
-      type: 'geofence',
-      level: 'low',
-      message: 'Patient approaching safe zone boundary',
-      description: 'Movement detected toward exit. Monitoring closely.',
-      location: { lat: 40.7580, lng: -73.9855 }
-    })
+    // Starting position (center of safe zone)
+    let lat = 40.7580
+    let lng = -73.9855
 
-    // Wait 5 seconds
-    await this.sleep(5000)
+    try {
+      // Step 1: Patient starts moving toward boundary
+      console.log('  📍 Step 1: Patient approaching boundary...')
 
-    // Step 2: Warning alert (patient left safe zone)
-    await apiClient.createAlert({
-      patient_id: patientId,
-      type: 'geofence',
-      level: 'medium',
-      message: 'Patient left safe zone',
-      description: 'Detected outside home perimeter. Front door opened.',
-      location: { lat: 40.7582, lng: -73.9860 }
-    })
+      // Create initial location and alert
+      await apiClient.createLocation({
+        patient_id: patientId,
+        latitude: lat,
+        longitude: lng,
+        accuracy: 10,
+      })
 
-    // Wait 5 seconds
-    await this.sleep(5000)
+      await apiClient.createAlert({
+        patient_id: patientId,
+        type: 'geofence',
+        level: 'low',
+        message: 'Patient approaching safe zone boundary',
+        description: 'Movement detected toward exit. Monitoring closely.',
+        location: { lat, lng }
+      })
 
-    // Step 3: High alert (moving away from home)
-    await apiClient.createAlert({
-      patient_id: patientId,
-      type: 'geofence',
-      level: 'high',
-      message: '⚠️ Patient moving away from home',
-      description: 'Distance increasing. Last seen heading toward Main Street.',
-      location: { lat: 40.7585, lng: -73.9870 }
-    })
+      // Animate movement toward boundary (5 steps over 5 seconds)
+      for (let i = 0; i < 5; i++) {
+        await this.sleep(1000)
+        lat += 0.0002
+        lng -= 0.0003
+        await apiClient.createLocation({
+          patient_id: patientId,
+          latitude: lat,
+          longitude: lng,
+          accuracy: 10,
+        })
+        onLocationUpdate?.(lat, lng)
+        console.log(`    Moving... (${lat.toFixed(4)}, ${lng.toFixed(4)})`)
+      }
 
-    console.log('✅ Wandering simulation complete')
+      // Step 2: Patient crosses boundary - left safe zone
+      console.log('  ⚠️  Step 2: Patient left safe zone...')
+
+      await apiClient.createAlert({
+        patient_id: patientId,
+        type: 'geofence',
+        level: 'medium',
+        message: 'Patient left safe zone',
+        description: 'Detected outside home perimeter. Front door opened.',
+        location: { lat, lng }
+      })
+
+      // Continue moving (5 more steps)
+      for (let i = 0; i < 5; i++) {
+        await this.sleep(1000)
+        lat += 0.0003
+        lng -= 0.0004
+        await apiClient.createLocation({
+          patient_id: patientId,
+          latitude: lat,
+          longitude: lng,
+          accuracy: 10,
+        })
+        onLocationUpdate?.(lat, lng)
+        console.log(`    Moving further... (${lat.toFixed(4)}, ${lng.toFixed(4)})`)
+      }
+
+      // Step 3: High alert - moving away from home
+      console.log('  🚨 Step 3: Patient moving away from home...')
+
+      await apiClient.createAlert({
+        patient_id: patientId,
+        type: 'geofence',
+        level: 'high',
+        message: '⚠️ Patient moving away from home',
+        description: 'Distance increasing. Last seen heading toward Main Street.',
+        location: { lat, lng }
+      })
+
+      // Final rapid movement (5 more steps)
+      for (let i = 0; i < 5; i++) {
+        await this.sleep(800)
+        lat += 0.0004
+        lng -= 0.0005
+        await apiClient.createLocation({
+          patient_id: patientId,
+          latitude: lat,
+          longitude: lng,
+          accuracy: 10,
+        })
+        onLocationUpdate?.(lat, lng)
+        console.log(`    Moving rapidly... (${lat.toFixed(4)}, ${lng.toFixed(4)})`)
+      }
+
+      console.log('✅ Wandering simulation complete - Patient has moved significantly on map!')
+    } catch (error) {
+      console.error('❌ Wandering simulation failed:', error)
+      throw error
+    }
   }
 
   /**
@@ -62,15 +121,20 @@ export class DemoSimulator {
   async simulateBatteryDrain(patientId: string) {
     console.log('🔋 Simulating battery drain...')
 
-    await apiClient.createAlert({
-      patient_id: patientId,
-      type: 'battery',
-      level: 'medium',
-      message: 'Device battery low - 15%',
-      description: 'Tracker battery running low. Charge recommended.',
-    })
+    try {
+      await apiClient.createAlert({
+        patient_id: patientId,
+        type: 'battery',
+        level: 'medium',
+        message: 'Device battery low - 15%',
+        description: 'Tracker battery running low. Charge recommended.',
+      })
 
-    console.log('✅ Battery alert created')
+      console.log('✅ Battery alert created')
+    } catch (error) {
+      console.error('❌ Battery simulation failed:', error)
+      throw error
+    }
   }
 
   /**
@@ -79,15 +143,20 @@ export class DemoSimulator {
   async simulateVitalsAlert(patientId: string) {
     console.log('💓 Simulating vital signs alert...')
 
-    await apiClient.createAlert({
-      patient_id: patientId,
-      type: 'vitals',
-      level: 'high',
-      message: 'Elevated heart rate detected',
-      description: 'Heart rate: 105 bpm (above normal threshold of 90 bpm)',
-    })
+    try {
+      await apiClient.createAlert({
+        patient_id: patientId,
+        type: 'vitals',
+        level: 'high',
+        message: 'Elevated heart rate detected',
+        description: 'Heart rate: 105 bpm (above normal threshold of 90 bpm)',
+      })
 
-    console.log('✅ Vitals alert created')
+      console.log('✅ Vitals alert created')
+    } catch (error) {
+      console.error('❌ Vitals simulation failed:', error)
+      throw error
+    }
   }
 
   /**
@@ -96,22 +165,37 @@ export class DemoSimulator {
   async triggerEmergency(patientId: string) {
     console.log('🚨 Triggering emergency...')
 
-    await apiClient.createEmergency({
-      patient_id: patientId,
-      last_known_location: { lat: 40.7590, lng: -73.9880 },
-      search_radius: 500,
-    })
+    try {
+      // Check if emergency already exists
+      const existingEmergencies = await apiClient.getEmergencies(true)
+      const hasActiveEmergency = existingEmergencies.some(
+        (e: any) => e.patient_id === patientId && e.status === 'active'
+      )
 
-    await apiClient.createAlert({
-      patient_id: patientId,
-      type: 'geofence',
-      level: 'critical',
-      message: '🚨 EMERGENCY: Patient missing',
-      description: 'Patient has not been located for 30 minutes. Search initiated.',
-      location: { lat: 40.7590, lng: -73.9880 }
-    })
+      if (hasActiveEmergency) {
+        console.log('⚠️  Emergency already active for this patient - skipping emergency creation')
+      } else {
+        await apiClient.createEmergency({
+          patient_id: patientId,
+          last_known_location: { lat: 40.7590, lng: -73.9880 },
+          search_radius: 500,
+        })
+      }
 
-    console.log('✅ Emergency triggered')
+      await apiClient.createAlert({
+        patient_id: patientId,
+        type: 'geofence',
+        level: 'critical',
+        message: '🚨 EMERGENCY: Patient missing',
+        description: 'Patient has not been located for 30 minutes. Search initiated.',
+        location: { lat: 40.7590, lng: -73.9880 }
+      })
+
+      console.log('✅ Emergency triggered')
+    } catch (error) {
+      console.error('❌ Emergency trigger failed:', error)
+      // Don't throw - allow demo to continue even if emergency creation fails
+    }
   }
 
   /**
@@ -121,7 +205,7 @@ export class DemoSimulator {
     console.log('✅ Simulating patient found...')
 
     await apiClient.resolveAlert(alertId)
-    
+
     console.log('✅ Patient marked as found')
   }
 
@@ -172,37 +256,125 @@ export class DemoSimulator {
   }
 
   /**
-   * Run complete demo scenario
+   * Run complete demo scenario with VISIBLE map movement
    */
   async runFullDemoScenario(patientId: string) {
     console.log('🎬 Starting FULL DEMO SCENARIO...')
-    console.log('This will take about 20 seconds')
+    console.log('📺 Watch the map - the patient marker will MOVE in real-time!')
+    console.log('⏱️  This demo takes about 30 seconds')
 
-    // Start with everything normal
-    console.log('1️⃣ Initial state: Patient safe at home')
-    await this.sleep(3000)
+    // Start with patient at home
+    console.log('\n1️⃣ Initial state: Setting patient position at home...')
+    await apiClient.createLocation({
+      patient_id: patientId,
+      latitude: 40.7580,
+      longitude: -73.9855,
+      accuracy: 10,
+    })
+    await this.sleep(2000)
 
     // Battery warning
-    console.log('2️⃣ Battery getting low...')
+    console.log('\n2️⃣ Creating battery alert...')
     await this.simulateBatteryDrain(patientId)
-    await this.sleep(5000)
+    await this.sleep(2000)
 
-    // Start wandering
-    console.log('3️⃣ Patient wandering incident detected...')
+    // Start wandering with visual movement
+    console.log('\n3️⃣ Starting wandering simulation - WATCH THE MAP!')
     await this.simulateWanderingIncident(patientId)
-    await this.sleep(10000)
+
+    // No extra sleep needed - wandering already took ~15 seconds with movement
 
     // Emergency
-    console.log('4️⃣ Escalating to emergency...')
+    console.log('\n4️⃣ Escalating to emergency...')
     await this.triggerEmergency(patientId)
-    await this.sleep(3000)
+    await this.sleep(2000)
 
-    console.log('✅ FULL DEMO SCENARIO COMPLETE!')
-    console.log('Now demonstrate resolving the alerts in the UI')
+    console.log('\n🎉 FULL DEMO SCENARIO COMPLETE!')
+    console.log('💡 The patient has moved on the map from safe zone to outside')
+    console.log('🔧 Now demonstrate resolving the alerts in the UI')
+  }
+
+  /**
+   * Return patient to home - visual movement back to safe zone
+   */
+  async returnHome(patientId: string) {
+    console.log('🏠 Returning patient to home...')
+
+    // Get current position (estimate - start from far position)
+    let lat = 40.7610
+    let lng = -73.9905
+
+    // Home position
+    const homeLat = 40.7580
+    const homeLng = -73.9855
+
+    try {
+      // Animate return journey (10 steps)
+      for (let i = 0; i < 10; i++) {
+        lat -= (lat - homeLat) * 0.15
+        lng -= (lng - homeLng) * 0.15
+
+        await apiClient.createLocation({
+          patient_id: patientId,
+          latitude: lat,
+          longitude: lng,
+          accuracy: 10,
+        })
+
+        console.log(`  🚶 Returning... (${lat.toFixed(4)}, ${lng.toFixed(4)})`)
+        await this.sleep(800)
+      }
+
+      // Final position - exactly at home
+      await apiClient.createLocation({
+        patient_id: patientId,
+        latitude: homeLat,
+        longitude: homeLng,
+        accuracy: 5,
+      })
+
+      console.log('✅ Patient returned home safely!')
+    } catch (error) {
+      console.error('❌ Return home failed:', error)
+    }
   }
 
   private sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms))
+  }
+
+  /**
+   * Reset demo state - resolve all alerts and emergencies
+   */
+  async resetDemo(patientId: string) {
+    console.log('🔄 Resetting demo state...')
+
+    try {
+      // Get all alerts for patient
+      const alerts = await apiClient.getAlerts(patientId)
+
+      // Resolve all unresolved alerts
+      for (const alert of alerts) {
+        if (!alert.resolvedAt) {
+          await apiClient.resolveAlert(alert.id)
+        }
+      }
+
+      // Get all emergencies for patient
+      const emergencies = await apiClient.getEmergencies(true)
+      const patientEmergencies = emergencies.filter((e: any) => e.patient_id === patientId)
+
+      // Resolve all active emergencies
+      for (const emergency of patientEmergencies) {
+        if (emergency.status === 'active') {
+          await apiClient.resolveEmergency(emergency.id, 'resolved')
+        }
+      }
+
+      console.log('✅ Demo state reset complete')
+    } catch (error) {
+      console.error('❌ Reset failed:', error)
+    }
   }
 }
 
@@ -218,10 +390,13 @@ export const demo = {
   full: (patientId = 'P001') => demoSimulator.runFullDemoScenario(patientId),
   startTracking: (patientId = 'P001') => demoSimulator.startLocationSimulation(patientId),
   stopTracking: () => demoSimulator.stopLocationSimulation(),
+  reset: (patientId = 'P001') => demoSimulator.resetDemo(patientId),
+  returnHome: (patientId = 'P001') => demoSimulator.returnHome(patientId),
 }
 
 // Make it available in browser console for easy demo control
 if (typeof window !== 'undefined') {
   (window as any).demo = demo
-  console.log('🎬 Demo controls loaded! Try: demo.full() or demo.wandering()')
+  console.log('🎬 Demo controls loaded! Try: demo.full() for full demo with MAP MOVEMENT')
+  console.log('💡 Tip: Use demo.reset() to clear alerts, demo.returnHome() to bring patient back')
 }

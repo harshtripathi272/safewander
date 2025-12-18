@@ -6,7 +6,7 @@ import { LiveMap } from "@/components/dashboard/live-map"
 import { QuickActions } from "@/components/dashboard/quick-actions"
 import { VitalsPanel } from "@/components/dashboard/vitals-panel"
 import { ActivityFeed } from "@/components/dashboard/activity-feed"
-import { DemoControlPanel } from "@/components/dashboard/demo-control-panel"
+import { SimulationPanel } from "@/components/dashboard/simulation-panel"
 import { usePatients } from "@/lib/hooks/use-patients"
 import { useZones } from "@/lib/hooks/use-tracking"
 import { useActivities } from "@/lib/hooks/use-alerts"
@@ -17,6 +17,11 @@ export default function DashboardPage() {
   const primaryPatient = patients[0] // Use first patient as primary
   const { zones } = useZones(primaryPatient?.id)
   const { activities } = useActivities(primaryPatient?.id)
+
+  // Debug logging for position updates
+  if (primaryPatient?.currentPosition) {
+    console.log('[Dashboard] Patient position updated:', primaryPatient.currentPosition)
+  }
 
   // Check if we're in demo mode (you can toggle this)
   const isDemoMode = process.env.NODE_ENV === 'development'
@@ -57,9 +62,9 @@ export default function DashboardPage() {
           {/* Left - Map (takes 2 columns) */}
           <div className="lg:col-span-2 space-y-6">
             <LiveMap patient={primaryPatient} zones={zones} className="h-[500px]" />
-            
-            {/* Demo Control Panel - Only in development */}
-            {isDemoMode && <DemoControlPanel />}
+
+            {/* Simulation Panel - Only in development */}
+            {isDemoMode && <SimulationPanel patientId={primaryPatient.id} />}
           </div>
 
           {/* Right - Actions & Vitals */}
