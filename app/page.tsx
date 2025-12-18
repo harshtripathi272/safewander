@@ -2,7 +2,7 @@
 
 import { AppShell } from "@/components/layout/app-shell"
 import { PatientHeader } from "@/components/dashboard/patient-header"
-import { LiveMap } from "@/components/dashboard/live-map"
+import { LiveMapWrapper } from "@/components/dashboard/live-map-wrapper"
 import { QuickActions } from "@/components/dashboard/quick-actions"
 import { VitalsPanel } from "@/components/dashboard/vitals-panel"
 import { ActivityFeed } from "@/components/dashboard/activity-feed"
@@ -61,7 +61,7 @@ export default function DashboardPage() {
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Left - Map (takes 2 columns) */}
           <div className="lg:col-span-2 space-y-6">
-            <LiveMap patient={primaryPatient} zones={zones} className="h-[500px]" />
+            <LiveMapWrapper patient={primaryPatient} zones={zones} className="h-[500px]" />
 
             {/* Simulation Panel - Only in development */}
             {isDemoMode && <SimulationPanel patientId={primaryPatient.id} />}
