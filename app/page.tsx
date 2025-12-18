@@ -118,8 +118,8 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Patient Header */}
-        <PatientHeader patient={selectedPatient} />
+        {/* Patient Header - Pass zones for dynamic zone detection */}
+        <PatientHeader patient={selectedPatient} zones={displayZones} />
 
         {/* Main Content Grid */}
         <div className="grid gap-6 lg:grid-cols-3">

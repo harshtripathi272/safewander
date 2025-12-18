@@ -117,3 +117,27 @@ async def delete_patient(patient_id: str, db: AsyncSession = Depends(get_db)):
     await db.delete(db_patient)
     await db.commit()
     return {"message": "Patient deleted successfully"}
+
+@router.put("/{patient_id}/reset-status")
+async def reset_patient_status(patient_id: str, db: AsyncSession = Depends(get_db)):
+    """Reset patient FSM state to safe - used for demo reset"""
+    from datetime import datetime
+    
+    result = await db.execute(select(Patient).where(Patient.id == patient_id))
+    db_patient = result.scalar_one_or_none()
+    
+    if not db_patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    
+    # Reset FSM state to safe
+    db_patient.status = "safe"
+    db_patient.fsm_state = "safe"
+    db_patient.risk_score = 0
+    db_patient.state_entered_at = datetime.utcnow()
+    db_patient.last_safe_zone_exit = None
+    db_patient.active_alerts = 0
+    
+    await db.commit()
+    await db.refresh(db_patient)
+    
+    return {"message": "Patient status reset to safe", "status": "safe", "fsm_state": "safe"}

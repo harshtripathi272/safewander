@@ -33,29 +33,87 @@ class ApiClient {
   async getPatients(): Promise<Patient[]> {
     const data = await this.request<any[]>("/api/patients")
     // Transform snake_case from backend to camelCase for frontend
-    return data.map(p => ({
-      ...p,
-      // Map backend fields to frontend expected fields
-      firstName: p.firstName || p.name?.split(' ')[0] || '',
-      lastName: p.lastName || p.name?.split(' ').slice(1).join(' ') || '',
-      photo: p.photo || p.photo_url || '',
-      currentPosition: p.currentPosition || p.current_position || { lat: 40.7580, lng: -73.9855 },
-      device: p.device || { batteryLevel: p.battery || 100, signalStrength: 'strong' },
-      status: p.status || 'safe',
-    })) as Patient[]
+    return data.map(p => {
+      // Parse current_position - could be string, object, or nested
+      let currentPosition = { lat: 37.7749, lng: -122.4194 } // San Francisco default
+      if (p.current_position) {
+        if (typeof p.current_position === 'string') {
+          try {
+            currentPosition = JSON.parse(p.current_position)
+          } catch {
+            // Try parsing as "lat,lng" format
+            const parts = p.current_position.split(',')
+            if (parts.length === 2) {
+              currentPosition = { lat: parseFloat(parts[0]), lng: parseFloat(parts[1]) }
+            }
+          }
+        } else if (typeof p.current_position === 'object') {
+          currentPosition = {
+            lat: p.current_position.lat || p.current_position.latitude || 37.7749,
+            lng: p.current_position.lng || p.current_position.longitude || -122.4194
+          }
+        }
+      } else if (p.currentPosition) {
+        currentPosition = p.currentPosition
+      } else if (p.latitude && p.longitude) {
+        currentPosition = { lat: p.latitude, lng: p.longitude }
+      }
+
+      return {
+        ...p,
+        firstName: p.firstName || p.first_name || p.name?.split(' ')[0] || '',
+        lastName: p.lastName || p.last_name || p.name?.split(' ').slice(1).join(' ') || '',
+        photo: p.photo || p.photo_url || '',
+        currentPosition,
+        device: p.device || { 
+          id: p.device_id || 'SW-0000',
+          batteryLevel: p.battery || p.battery_level || 100, 
+          signalStrength: p.signal_strength || 'strong' 
+        },
+        status: p.status || p.fsm_state || 'safe',
+      }
+    }) as Patient[]
   }
 
   async getPatient(id: string): Promise<Patient> {
     const p = await this.request<any>(`/api/patients/${id}`)
-    // Transform snake_case from backend to camelCase for frontend
+    
+    // Parse current_position - could be string, object, or nested
+    let currentPosition = { lat: 37.7749, lng: -122.4194 } // San Francisco default
+    if (p.current_position) {
+      if (typeof p.current_position === 'string') {
+        try {
+          currentPosition = JSON.parse(p.current_position)
+        } catch {
+          const parts = p.current_position.split(',')
+          if (parts.length === 2) {
+            currentPosition = { lat: parseFloat(parts[0]), lng: parseFloat(parts[1]) }
+          }
+        }
+      } else if (typeof p.current_position === 'object') {
+        currentPosition = {
+          lat: p.current_position.lat || p.current_position.latitude || 37.7749,
+          lng: p.current_position.lng || p.current_position.longitude || -122.4194
+        }
+      }
+    } else if (p.currentPosition) {
+      currentPosition = p.currentPosition
+    } else if (p.latitude && p.longitude) {
+      currentPosition = { lat: p.latitude, lng: p.longitude }
+    }
+
     return {
       ...p,
-      firstName: p.firstName || p.name?.split(' ')[0] || '',
-      lastName: p.lastName || p.name?.split(' ').slice(1).join(' ') || '',
+      firstName: p.firstName || p.first_name || p.name?.split(' ')[0] || '',
+      lastName: p.lastName || p.last_name || p.name?.split(' ').slice(1).join(' ') || '',
       photo: p.photo || p.photo_url || '',
-      currentPosition: p.currentPosition || p.current_position || { lat: 40.7580, lng: -73.9855 },
-      device: p.device || { batteryLevel: p.battery || 100, signalStrength: 'strong' },
-      status: p.status || 'safe',
+      currentPosition,
+      device: p.device || { 
+        id: p.device_id || 'SW-0000',
+        batteryLevel: p.battery || p.battery_level || 100, 
+        signalStrength: p.signal_strength || 'strong' 
+      },
+      status: p.status || p.fsm_state || 'safe',
     } as Patient
   }
 
@@ -70,6 +128,12 @@ class ApiClient {
     return this.request<Patient>(`/api/patients/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
+    })
+  }
+
+  async resetPatientStatus(id: string): Promise<any> {
+    return this.request<any>(`/api/patients/${id}/reset-status`, {
+      method: "PUT",
     })
   }
 

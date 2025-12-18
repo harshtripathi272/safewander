@@ -7,8 +7,10 @@ export function usePatients() {
     '/api/patients',
     () => apiClient.getPatients(),
     {
-      refreshInterval: 1000, // Fast refresh for real-time map movement
+      refreshInterval: 500, // Faster refresh (500ms) for real-time position updates
       revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      dedupingInterval: 100, // Allow rapid refetches
     }
   )
 
@@ -25,8 +27,10 @@ export function usePatient(id: string | undefined) {
     id ? `/api/patients/${id}` : null,
     id ? () => apiClient.getPatient(id) : null,
     {
-      refreshInterval: 3000,
+      refreshInterval: 500, // Faster refresh for real-time updates
       revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      dedupingInterval: 100,
     }
   )
 
