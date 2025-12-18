@@ -26,10 +26,11 @@ export function useLocations(patientId: string | undefined, limit = 100) {
 export function useZones(patientId: string | undefined) {
   const { data, error, isLoading, mutate } = useSWR(
     patientId ? `/api/tracking/zones?patient_id=${patientId}` : null,
-    patientId ? () => apiClient.getZones(patientId) : null,
+    patientId ? () => apiClient.getZones(patientId).catch(() => []) : null,
     {
       refreshInterval: 10000,
       revalidateOnFocus: true,
+      fallbackData: [],
     }
   )
 

@@ -1,269 +1,98 @@
-// Demo Simulation Helper - FSM-Integrated Version
-// Relies on backend FSM for automatic alert escalation based on risk scoring.
-// Location updates now trigger backend risk calculation automatically.
+// Demo Simulation - Implements ALGORITHM_SPEC.md Example Flow
+// FSM: SAFE → ADVISORY → WARNING → URGENT → EMERGENCY
+// Risk Scoring with exact weights from spec
 
 import { apiClient } from './api-client'
 
-// Default positions
-const HOME_LAT = 40.7580
-const HOME_LNG = -73.9855
-const DANGER_ZONE_LAT = 40.7620  // Danger zone to the north
-const DANGER_ZONE_LNG = -73.9900
+// San Francisco coordinates (matching demoZones in data.ts)
+const HOME_LAT = 37.7749
+const HOME_LNG = -122.4194
 
-// Realistic walking speed: ~0.8-1.2 m/s = ~0.00001 degrees per second
-const STEP_SIZE_LAT = 0.0003  // ~30m per step
-const STEP_SIZE_LNG = 0.0004
+// Zone positions from data.ts
+const DANGER_ZONE_LAT = 37.777
+const DANGER_ZONE_LNG = -122.417
+
+// Movement step (~10m per step)
+const STEP_SIZE = 0.0001
 
 export class DemoSimulator {
   private isRunning = false
-  private intervalId: NodeJS.Timeout | null = null
 
   /**
-   * Simulate a patient wandering scenario with VISIBLE map movement.
-   * The backend FSM will automatically escalate alerts based on risk scoring.
-   * No manual alert creation needed - purely location-based demonstration.
+   * ALGORITHM_SPEC.md Example Flow:
+   * 
+   * | Time  | Event              | Risk | State     | Alert    |
+   * |-------|--------------------| -----|-----------|----------|
+   * | 0:00  | At home            | 0    | SAFE      | -        |
+   * | 0:05  | Enter buffer       | 10   | ADVISORY  | Low      |
+   * | 0:10  | Exit safe zone     | 40   | ADVISORY  | -        |
+   * | 5:10  | Still outside      | 50   | WARNING   | Medium   |
+   * | 10:10 | Near danger zone   | 90   | URGENT    | High     |
+   * | 20:10 | Still missing      | 100  | EMERGENCY | Critical |
    */
-  async simulateWanderingIncident(patientId: string, onLocationUpdate?: (lat: number, lng: number) => void) {
-    console.log('🎬 Starting FSM-integrated wandering simulation...')
-    console.log('📍 Backend will automatically calculate risk and escalate alerts')
+  async runFullDemoScenario(patientId: string) {
+    console.log('🎬 ══════════════════════════════════════════')
+    console.log('   SAFEWANDER ALGORITHM DEMO')
+    console.log('   Following ALGORITHM_SPEC.md Example Flow')
+    console.log('══════════════════════════════════════════════')
+    console.log('')
 
     let lat = HOME_LAT
     let lng = HOME_LNG
 
     try {
-      // Step 1: Patient at home (safe zone) - establish baseline
-      console.log('  🏠 Step 1: Patient at home, establishing safe position...')
+      // ═══════════════════════════════════════════════════════════
+      // TIME 0:00 - At home (SAFE, Risk = 0)
+      // ═══════════════════════════════════════════════════════════
+      console.log('⏱️  0:00 | 🏠 AT HOME')
+      console.log('         Risk: 0 | State: SAFE | Alert: None')
+      console.log('         Patient inside safe zone, all normal')
+      
       await apiClient.createLocation({
         patient_id: patientId,
-        latitude: lat,
-        longitude: lng,
-        accuracy: 10,
+        latitude: HOME_LAT,
+        longitude: HOME_LNG,
+        accuracy: 5,
         speed: 0
       })
-      await this.sleep(1500)
+      await this.sleep(3000)
 
-      // Step 2: Patient starts moving toward boundary (5 steps)
-      console.log('  📍 Step 2: Patient approaching safe zone boundary...')
+      // ═══════════════════════════════════════════════════════════
+      // TIME 0:05 - Enter buffer zone (ADVISORY, Risk = 10)
+      // ═══════════════════════════════════════════════════════════
+      console.log('')
+      console.log('⏱️  0:05 | 🔵 ENTER BUFFER ZONE')
+      console.log('         Risk: 10 (+10 buffer) | State: ADVISORY | Alert: Low')
+      console.log('         Patient approaching safe zone boundary')
+      
+      // Move toward edge of safe zone (5 steps)
       for (let i = 0; i < 5; i++) {
-        await this.sleep(1000)
-        lat += STEP_SIZE_LAT
-        lng -= STEP_SIZE_LNG
+        lat += STEP_SIZE * 0.3
+        lng += STEP_SIZE * 0.2
         await apiClient.createLocation({
           patient_id: patientId,
           latitude: lat,
           longitude: lng,
-          accuracy: 10,
-          speed: 0.8  // Walking speed
+          accuracy: 8,
+          speed: 0.7
         })
-        onLocationUpdate?.(lat, lng)
-        console.log(`    Moving... (${lat.toFixed(4)}, ${lng.toFixed(4)}) - Backend calculating risk...`)
-      }
-
-      // Step 3: Patient exits safe zone, enters buffer zone
-      console.log('  ⚠️ Step 3: Patient exited safe zone, entering buffer...')
-      for (let i = 0; i < 5; i++) {
-        await this.sleep(1000)
-        lat += STEP_SIZE_LAT
-        lng -= STEP_SIZE_LNG
-        await apiClient.createLocation({
-          patient_id: patientId,
-          latitude: lat,
-          longitude: lng,
-          accuracy: 10,
-          speed: 0.9
-        })
-        onLocationUpdate?.(lat, lng)
-        console.log(`    Moving further... (${lat.toFixed(4)}, ${lng.toFixed(4)}) - FSM should escalate...`)
-      }
-
-      // Step 4: Patient moving toward danger zone
-      console.log('  🚨 Step 4: Patient approaching danger zone...')
-      for (let i = 0; i < 5; i++) {
+        console.log(`         📍 Moving... (${lat.toFixed(5)}, ${lng.toFixed(5)})`)
         await this.sleep(800)
-        lat += STEP_SIZE_LAT * 1.2
-        lng -= STEP_SIZE_LNG * 1.2
-        await apiClient.createLocation({
-          patient_id: patientId,
-          latitude: lat,
-          longitude: lng,
-          accuracy: 10,
-          speed: 1.1  // Faster movement (possibly agitated)
-        })
-        onLocationUpdate?.(lat, lng)
-        console.log(`    Moving rapidly... (${lat.toFixed(4)}, ${lng.toFixed(4)}) - High risk expected`)
       }
+      await this.sleep(2000)
 
-      console.log('✅ Wandering simulation complete!')
-      console.log('💡 Check alerts page to see FSM-generated escalation')
-    } catch (error) {
-      console.error('❌ Wandering simulation failed:', error)
-      throw error
-    }
-  }
-
-  /**
-   * Create a danger zone for demo purposes
-   */
-  async createDangerZone(patientId: string) {
-    console.log('🔴 Creating danger zone...')
-    try {
-      await apiClient.createZone({
-        patient_id: patientId,
-        name: 'Busy Road',
-        type: 'danger',
-        coordinates: [{ lat: DANGER_ZONE_LAT, lng: DANGER_ZONE_LNG }],
-        radius: 50
-      })
-      console.log('✅ Danger zone created at road crossing')
-    } catch (error) {
-      console.log('⚠️ Danger zone may already exist:', error)
-    }
-  }
-
-  /**
-   * Create safe zone around home
-   */
-  async createSafeZone(patientId: string) {
-    console.log('🟢 Creating safe zone around home...')
-    try {
-      await apiClient.createZone({
-        patient_id: patientId,
-        name: 'Home',
-        type: 'safe',
-        coordinates: [{ lat: HOME_LAT, lng: HOME_LNG }],
-        radius: 100
-      })
-      console.log('✅ Safe zone created (buffer zone auto-generated)')
-    } catch (error) {
-      console.log('⚠️ Safe zone may already exist:', error)
-    }
-  }
-
-  /**
-   * Simulate battery drain scenario
-   */
-  async simulateBatteryDrain(patientId: string) {
-    console.log('🔋 Simulating battery drain...')
-    try {
-      await apiClient.createAlert({
-        patient_id: patientId,
-        type: 'battery',
-        level: 'medium',
-        message: 'Device battery low - 15%',
-        description: 'Tracker battery running low. Charge recommended.',
-      })
-      console.log('✅ Battery alert created')
-    } catch (error) {
-      console.error('❌ Battery simulation failed:', error)
-      throw error
-    }
-  }
-
-  /**
-   * Simulate vital signs alert
-   */
-  async simulateVitalsAlert(patientId: string) {
-    console.log('💓 Simulating vital signs alert...')
-    try {
-      await apiClient.createAlert({
-        patient_id: patientId,
-        type: 'vitals',
-        level: 'high',
-        message: 'Elevated heart rate detected',
-        description: 'Heart rate: 105 bpm (above threshold)',
-      })
-      console.log('✅ Vitals alert created')
-    } catch (error) {
-      console.error('❌ Vitals simulation failed:', error)
-      throw error
-    }
-  }
-
-  /**
-   * Trigger emergency (will use backend search radius estimation)
-   */
-  async triggerEmergency(patientId: string) {
-    console.log('🚨 Triggering emergency with auto-calculated search radius...')
-    try {
-      const existingEmergencies = await apiClient.getEmergencies(true)
-      const hasActiveEmergency = existingEmergencies.some(
-        (e: any) => e.patient_id === patientId && e.status === 'active'
-      )
-
-      if (hasActiveEmergency) {
-        console.log('⚠️ Emergency already active')
-      } else {
-        // Don't specify search_radius - let backend calculate it
-        await apiClient.createEmergency({
-          patient_id: patientId,
-          last_known_location: { lat: 40.7610, lng: -73.9895 },
-          search_radius: 0  // Backend will estimate based on baseline
-        })
-        console.log('✅ Emergency triggered with auto-estimated search radius')
-      }
-    } catch (error) {
-      console.error('❌ Emergency trigger failed:', error)
-    }
-  }
-
-  /**
-   * Run complete demo scenario with FSM escalation
-   */
-  async runFullDemoScenario(patientId: string) {
-    console.log('🎬 Starting FULL FSM DEMO SCENARIO...')
-    console.log('📺 Watch the map and alerts - FSM will auto-escalate!')
-    console.log('⏱️ This demo takes about 30 seconds')
-
-    // Setup zones first
-    console.log('\n1️⃣ Setting up zones...')
-    await this.createSafeZone(patientId)
-    await this.createDangerZone(patientId)
-    await this.sleep(1000)
-
-    // Set initial position
-    console.log('\n2️⃣ Placing patient at home...')
-    await apiClient.createLocation({
-      patient_id: patientId,
-      latitude: HOME_LAT,
-      longitude: HOME_LNG,
-      accuracy: 10,
-      speed: 0
-    })
-    await this.sleep(2000)
-
-    // Battery warning
-    console.log('\n3️⃣ Creating battery alert...')
-    await this.simulateBatteryDrain(patientId)
-    await this.sleep(1500)
-
-    // Wandering with FSM escalation
-    console.log('\n4️⃣ Starting wandering simulation - WATCH FSM ESCALATE!')
-    await this.simulateWanderingIncident(patientId)
-
-    // Emergency
-    console.log('\n5️⃣ Escalating to emergency...')
-    await this.triggerEmergency(patientId)
-    await this.sleep(2000)
-
-    console.log('\n🎉 FULL DEMO SCENARIO COMPLETE!')
-    console.log('💡 The FSM should have escalated: safe → advisory → warning → urgent')
-    console.log('🔧 Resolve alerts in UI to reset patient state')
-  }
-
-  /**
-   * Return patient to home - visual movement back to safe zone
-   */
-  async returnHome(patientId: string) {
-    console.log('🏠 Returning patient to home...')
-
-    let lat = 40.7630
-    let lng = -73.9930
-
-    try {
-      for (let i = 0; i < 10; i++) {
-        lat -= (lat - HOME_LAT) * 0.15
-        lng -= (lng - HOME_LNG) * 0.15
-
+      // ═══════════════════════════════════════════════════════════
+      // TIME 0:10 - Exit safe zone (Risk = 40)
+      // ═══════════════════════════════════════════════════════════
+      console.log('')
+      console.log('⏱️  0:10 | ⚠️  EXIT SAFE ZONE')
+      console.log('         Risk: 40 (+30 outside safe) | State: ADVISORY | Alert: -')
+      console.log('         Patient has left the safe zone perimeter')
+      
+      // Continue moving outside (8 steps)
+      for (let i = 0; i < 8; i++) {
+        lat += STEP_SIZE * 0.5
+        lng += STEP_SIZE * 0.3
         await apiClient.createLocation({
           patient_id: patientId,
           latitude: lat,
@@ -271,9 +100,260 @@ export class DemoSimulator {
           accuracy: 10,
           speed: 0.8
         })
+        console.log(`         📍 Moving away... (${lat.toFixed(5)}, ${lng.toFixed(5)})`)
+        await this.sleep(600)
+      }
+      await this.sleep(2000)
 
-        console.log(`  🚶 Returning... (${lat.toFixed(4)}, ${lng.toFixed(4)})`)
+      // ═══════════════════════════════════════════════════════════
+      // TIME 5:10 - Still outside 5 min (WARNING, Risk = 50)
+      // ═══════════════════════════════════════════════════════════
+      console.log('')
+      console.log('⏱️  5:10 | 🟡 STILL OUTSIDE (5 min)')
+      console.log('         Risk: 50 (+30 outside, +20 duration) | State: WARNING | Alert: Medium')
+      console.log('         Wandering behavior detected, escalating...')
+      
+      // Simulate erratic movement (wandering pattern)
+      for (let i = 0; i < 6; i++) {
+        // Add some random direction changes to simulate confusion
+        const angle = (i * 60) * Math.PI / 180
+        lat += STEP_SIZE * 0.4 * Math.cos(angle)
+        lng += STEP_SIZE * 0.4 * Math.sin(angle)
+        await apiClient.createLocation({
+          patient_id: patientId,
+          latitude: lat,
+          longitude: lng,
+          accuracy: 12,
+          speed: 0.6 + Math.random() * 0.3
+        })
+        console.log(`         📍 Wandering... (${lat.toFixed(5)}, ${lng.toFixed(5)})`)
+        await this.sleep(700)
+      }
+      await this.sleep(2000)
+
+      // ═══════════════════════════════════════════════════════════
+      // TIME 10:10 - Near danger zone (URGENT, Risk = 90)
+      // ═══════════════════════════════════════════════════════════
+      console.log('')
+      console.log('⏱️ 10:10 | 🔴 APPROACHING DANGER ZONE')
+      console.log('         Risk: 90 (+30 outside, +40 danger, +20 duration) | State: URGENT | Alert: High')
+      console.log('         Patient heading toward Main Road (danger zone)!')
+      
+      // Move toward danger zone
+      for (let i = 0; i < 10; i++) {
+        lat += (DANGER_ZONE_LAT - lat) * 0.12
+        lng += (DANGER_ZONE_LNG - lng) * 0.12
+        await apiClient.createLocation({
+          patient_id: patientId,
+          latitude: lat,
+          longitude: lng,
+          accuracy: 15,
+          speed: 1.0  // Faster movement
+        })
+        console.log(`         🚨 Approaching danger... (${lat.toFixed(5)}, ${lng.toFixed(5)})`)
+        await this.sleep(500)
+      }
+      await this.sleep(2000)
+
+      // ═══════════════════════════════════════════════════════════
+      // TIME 20:10 - Still missing 10+ min (EMERGENCY, Risk = 100)
+      // ═══════════════════════════════════════════════════════════
+      console.log('')
+      console.log('⏱️ 20:10 | 🆘 EMERGENCY - PATIENT MISSING')
+      console.log('         Risk: 100 (CAPPED) | State: EMERGENCY | Alert: Critical')
+      console.log('         Search protocol activated!')
+      
+      // Patient at danger zone, slowing down (confusion)
+      for (let i = 0; i < 5; i++) {
+        lat += STEP_SIZE * 0.1 * (Math.random() - 0.5)
+        lng += STEP_SIZE * 0.1 * (Math.random() - 0.5)
+        await apiClient.createLocation({
+          patient_id: patientId,
+          latitude: lat,
+          longitude: lng,
+          accuracy: 20,
+          speed: 0.3  // Slowing down
+        })
+        console.log(`         🆘 Patient confused... (${lat.toFixed(5)}, ${lng.toFixed(5)})`)
         await this.sleep(800)
+      }
+
+      // Trigger emergency
+      console.log('')
+      console.log('📡 TRIGGERING EMERGENCY PROTOCOL...')
+      await this.triggerEmergency(patientId)
+
+      console.log('')
+      console.log('═══════════════════════════════════════════════')
+      console.log('🎬 DEMO COMPLETE!')
+      console.log('═══════════════════════════════════════════════')
+      console.log('')
+      console.log('📊 FSM Progression: SAFE → ADVISORY → WARNING → URGENT → EMERGENCY')
+      console.log('📋 Risk Factors Used:')
+      console.log('   • Outside safe zone: +30')
+      console.log('   • Near danger zone: +40') 
+      console.log('   • Duration outside >10min: +20')
+      console.log('   • Buffer zone: +10')
+      console.log('')
+      console.log('💡 Next Steps:')
+      console.log('   • Check Alerts page for escalation history')
+      console.log('   • Check Map for patient position')
+      console.log('   • Click "Return Home" to bring patient back')
+      console.log('   • Click "Reset" to clear all alerts')
+
+    } catch (error) {
+      console.error('❌ Demo failed:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Simulate wandering incident (shorter demo)
+   */
+  async simulateWanderingIncident(patientId: string) {
+    console.log('🚶 WANDERING SIMULATION')
+    console.log('Patient will exit safe zone and wander...')
+    console.log('')
+
+    let lat = HOME_LAT
+    let lng = HOME_LNG
+
+    try {
+      // Start at home
+      await apiClient.createLocation({
+        patient_id: patientId,
+        latitude: lat,
+        longitude: lng,
+        accuracy: 5,
+        speed: 0
+      })
+      await this.sleep(1000)
+
+      // Move outside safe zone (15 steps)
+      for (let i = 0; i < 15; i++) {
+        lat += STEP_SIZE * 0.6
+        lng -= STEP_SIZE * 0.4
+        await apiClient.createLocation({
+          patient_id: patientId,
+          latitude: lat,
+          longitude: lng,
+          accuracy: 8 + i * 0.3,
+          speed: 0.7 + Math.random() * 0.2
+        })
+        
+        if (i === 4) console.log('  📍 Entering buffer zone...')
+        if (i === 8) console.log('  ⚠️  Left safe zone!')
+        if (i === 12) console.log('  🚨 Wandering detected!')
+        
+        await this.sleep(600)
+      }
+
+      console.log('')
+      console.log('✅ Wandering simulation complete')
+      console.log('📊 Check alerts for FSM state changes')
+    } catch (error) {
+      console.error('❌ Wandering simulation failed:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Battery drain alert
+   */
+  async simulateBatteryDrain(patientId: string) {
+    console.log('🔋 Creating battery low alert...')
+    try {
+      await apiClient.createAlert({
+        patient_id: patientId,
+        type: 'battery',
+        severity: 'medium',
+        title: 'Device Battery Low',
+        description: 'Tracker battery at 15% - charge recommended',
+      })
+      console.log('✅ Battery alert created')
+    } catch (error) {
+      console.error('❌ Failed:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Vitals alert
+   */
+  async simulateVitalsAlert(patientId: string) {
+    console.log('💓 Creating elevated heart rate alert...')
+    try {
+      await apiClient.createAlert({
+        patient_id: patientId,
+        type: 'vitals',
+        severity: 'high',
+        title: 'Elevated Heart Rate',
+        description: 'Heart rate: 105 bpm (threshold: 90 bpm)',
+      })
+      console.log('✅ Vitals alert created')
+    } catch (error) {
+      console.error('❌ Failed:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Trigger emergency with search radius
+   */
+  async triggerEmergency(patientId: string) {
+    try {
+      const emergencies = await apiClient.getEmergencies(true).catch(() => [])
+      const hasActive = emergencies.some((e: any) => e.patient_id === patientId)
+
+      if (hasActive) {
+        console.log('⚠️  Emergency already active')
+        return
+      }
+
+      await apiClient.createEmergency({
+        patient_id: patientId,
+        last_known_location: { lat: DANGER_ZONE_LAT, lng: DANGER_ZONE_LNG },
+        trigger_type: 'fsm_escalation',
+        notes: 'FSM reached EMERGENCY state - patient near danger zone'
+      })
+      
+      console.log('✅ Emergency activated')
+      console.log('🔍 Search radius calculated by backend')
+    } catch (error) {
+      console.error('❌ Emergency failed:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Return patient home with visible movement
+   */
+  async returnHome(patientId: string) {
+    console.log('🏠 RETURNING PATIENT HOME')
+    console.log('Risk will decrease as patient enters safe zone...')
+    console.log('')
+
+    let lat = DANGER_ZONE_LAT
+    let lng = DANGER_ZONE_LNG
+
+    try {
+      for (let i = 0; i < 20; i++) {
+        lat += (HOME_LAT - lat) * 0.12
+        lng += (HOME_LNG - lng) * 0.12
+
+        await apiClient.createLocation({
+          patient_id: patientId,
+          latitude: lat,
+          longitude: lng,
+          accuracy: 8,
+          speed: 0.8
+        })
+
+        if (i === 5) console.log('  📍 Moving away from danger...')
+        if (i === 10) console.log('  📍 Approaching safe zone...')
+        if (i === 15) console.log('  📍 Entering safe zone!')
+        
+        await this.sleep(500)
       }
 
       // Final position at home
@@ -285,41 +365,44 @@ export class DemoSimulator {
         speed: 0
       })
 
-      console.log('✅ Patient returned home - FSM should de-escalate to SAFE')
+      console.log('')
+      console.log('✅ Patient safely home')
+      console.log('📊 FSM should de-escalate: EMERGENCY → URGENT → WARNING → ADVISORY → SAFE')
     } catch (error) {
       console.error('❌ Return home failed:', error)
+      throw error
     }
   }
 
-  private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms))
-  }
-
   /**
-   * Reset demo state - resolve all alerts and emergencies
+   * Reset demo - resolve alerts and return home
    */
   async resetDemo(patientId: string) {
-    console.log('🔄 Resetting demo state...')
+    console.log('🔄 RESETTING DEMO STATE')
+    console.log('')
 
     try {
       // Resolve alerts
-      const alerts = await apiClient.getAlerts(patientId)
+      const alerts = await apiClient.getAlerts(patientId).catch(() => [])
+      let count = 0
       for (const alert of alerts) {
-        if (!alert.resolvedAt) {
-          await apiClient.resolveAlert(alert.id)
+        if (alert.status !== 'resolved') {
+          await apiClient.resolveAlert(alert.id).catch(() => {})
+          count++
         }
       }
+      console.log(`  ✅ Resolved ${count} alerts`)
 
       // Resolve emergencies
-      const emergencies = await apiClient.getEmergencies(true)
-      const patientEmergencies = emergencies.filter((e: any) => e.patient_id === patientId)
-      for (const emergency of patientEmergencies) {
-        if (emergency.status === 'active') {
-          await apiClient.resolveEmergency(emergency.id, 'resolved')
+      const emergencies = await apiClient.getEmergencies(true).catch(() => [])
+      for (const e of emergencies) {
+        if (e.patient_id === patientId && e.status === 'active') {
+          await apiClient.resolveEmergency(e.id, 'false_alarm').catch(() => {})
         }
       }
+      console.log('  ✅ Resolved emergencies')
 
-      // Reset patient position to home
+      // Reset position
       await apiClient.createLocation({
         patient_id: patientId,
         latitude: HOME_LAT,
@@ -327,83 +410,38 @@ export class DemoSimulator {
         accuracy: 5,
         speed: 0
       })
+      console.log('  ✅ Position reset to home')
 
-      console.log('✅ Demo state reset - patient back to SAFE state')
+      console.log('')
+      console.log('🎉 Demo reset complete - patient in SAFE state')
     } catch (error) {
       console.error('❌ Reset failed:', error)
+      throw error
     }
   }
 
-  /**
-   * Start continuous location updates
-   */
-  startLocationSimulation(patientId: string, onUpdate?: (location: any) => void) {
-    if (this.isRunning) return
-
-    this.isRunning = true
-    let lat = HOME_LAT
-    let lng = HOME_LNG
-
-    this.intervalId = setInterval(async () => {
-      lat += (Math.random() - 0.5) * 0.0001
-      lng += (Math.random() - 0.5) * 0.0001
-
-      const location = { lat, lng, timestamp: new Date().toISOString() }
-
-      try {
-        await apiClient.createLocation({
-          patient_id: patientId,
-          latitude: lat,
-          longitude: lng,
-          accuracy: 10,
-          speed: 0.2
-        })
-        if (onUpdate) onUpdate(location)
-      } catch (error) {
-        console.error('Location update failed:', error)
-      }
-    }, 3000)
-
-    console.log('🎬 Location simulation started')
-  }
-
-  /**
-   * Stop location simulation
-   */
-  stopLocationSimulation() {
-    if (this.intervalId) {
-      clearInterval(this.intervalId)
-      this.intervalId = null
-    }
-    this.isRunning = false
-    console.log('⏹️ Location simulation stopped')
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms))
   }
 }
 
-// Export singleton instance
+// Export singleton
 export const demoSimulator = new DemoSimulator()
 
-// Quick access functions for console
+// Console helper
 export const demo = {
-  wandering: (patientId = 'P001') => demoSimulator.simulateWanderingIncident(patientId),
-  battery: (patientId = 'P001') => demoSimulator.simulateBatteryDrain(patientId),
-  vitals: (patientId = 'P001') => demoSimulator.simulateVitalsAlert(patientId),
-  emergency: (patientId = 'P001') => demoSimulator.triggerEmergency(patientId),
-  full: (patientId = 'P001') => demoSimulator.runFullDemoScenario(patientId),
-  startTracking: (patientId = 'P001') => demoSimulator.startLocationSimulation(patientId),
-  stopTracking: () => demoSimulator.stopLocationSimulation(),
-  reset: (patientId = 'P001') => demoSimulator.resetDemo(patientId),
-  returnHome: (patientId = 'P001') => demoSimulator.returnHome(patientId),
-  createZones: (patientId = 'P001') => {
-    demoSimulator.createSafeZone(patientId)
-    demoSimulator.createDangerZone(patientId)
-  }
+  full: (id = '1') => demoSimulator.runFullDemoScenario(id),
+  wandering: (id = '1') => demoSimulator.simulateWanderingIncident(id),
+  battery: (id = '1') => demoSimulator.simulateBatteryDrain(id),
+  vitals: (id = '1') => demoSimulator.simulateVitalsAlert(id),
+  emergency: (id = '1') => demoSimulator.triggerEmergency(id),
+  returnHome: (id = '1') => demoSimulator.returnHome(id),
+  reset: (id = '1') => demoSimulator.resetDemo(id),
 }
 
-// Make available in browser console
+// Browser console access
 if (typeof window !== 'undefined') {
   (window as any).demo = demo
-  console.log('🎬 FSM Demo controls loaded!')
-  console.log('💡 Try: demo.full() - FSM will auto-escalate alerts based on location')
-  console.log('💡 Try: demo.createZones() - Setup safe and danger zones first')
+  console.log('🎬 SafeWander Demo loaded!')
+  console.log('📋 Commands: demo.full() | demo.wandering() | demo.reset() | demo.returnHome()')
 }

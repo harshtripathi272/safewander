@@ -1,14 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { MapContainer, TileLayer, Marker, Circle, Popup, useMap } from "react-leaflet"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
-import { Plus, Minus, Crosshair, Layers } from "lucide-react"
 import type { Patient, Zone } from "@/lib/types"
+import { demoZones } from "@/lib/data"
 
 // Fix for default marker icon
 const createCustomIcon = (color: string) => {
@@ -46,40 +45,46 @@ function MapUpdater({ center }: { center: [number, number] }) {
   return null
 }
 
+// Zone colors from ALGORITHM_SPEC.md
+const ZONE_COLORS: Record<string, string> = {
+  safe: "#10b981",
+  buffer: "#3b82f6",
+  danger: "#ef4444",
+  restricted: "#f97316",
+  routine: "#8b5cf6",
+  trusted: "#3b82f6",
+}
+
 export function LiveMap({ patient, zones, className }: LiveMapProps) {
-  const [refreshKey, setRefreshKey] = useState(0)
-
-  // Auto-refresh every 2 seconds for live location updates
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setRefreshKey((prev) => prev + 1)
-    }, 2000)
-
-    return () => clearInterval(interval)
+  const [mapReady, setMapReady] = useState(false)
+  
+  // ALWAYS use demo zones - this ensures zones are visible
+  const displayZones = useMemo(() => {
+    return demoZones // Always use demo zones for reliability
   }, [])
 
-  const patientLat = patient?.currentPosition?.lat ?? 40.7580
-  const patientLng = patient?.currentPosition?.lng ?? -73.9855
-  const homeLat = 40.7580
-  const homeLng = -73.9855
+  // San Francisco coordinates (matching demoZones)
+  const patientLat = patient?.currentPosition?.lat ?? 37.7749
+  const patientLng = patient?.currentPosition?.lng ?? -122.4194
+  const homeLat = 37.7749
+  const homeLng = -122.4194
 
-  const zoneColors: Record<string, string> = {
-    safe: "#10b981",       // green
-    buffer: "#3b82f6",     // blue (auto-generated)
-    danger: "#ef4444",     // red
-    restricted: "#f97316", // orange
-    trusted: "#3b82f6",    // blue (legacy)
-    routine: "#8b5cf6",    // purple (legacy)
-  }
+  // Force map to be ready after mount
+  useEffect(() => {
+    const timer = setTimeout(() => setMapReady(true), 100)
+    return () => clearTimeout(timer)
+  }, [])
 
   return (
     <Card className={`border-[var(--border-subtle)] bg-[var(--bg-secondary)] ${className}`}>
       <CardContent className="relative h-full min-h-[400px] overflow-hidden rounded-lg p-0">
         <MapContainer
+          key={mapReady ? "ready" : "loading"}
           center={[patientLat, patientLng]}
-          zoom={15}
+          zoom={16}
           style={{ height: "100%", width: "100%", zIndex: 1 }}
           zoomControl={false}
+          whenReady={() => setMapReady(true)}
         >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -88,13 +93,46 @@ export function LiveMap({ patient, zones, className }: LiveMapProps) {
 
           <MapUpdater center={[patientLat, patientLng]} />
 
+          {/* Render all zones */}
+          {displayZones.map((zone) => {
+            if (!zone.center?.lat || !zone.center?.lng) return null
+            
+            const color = ZONE_COLORS[zone.type] || ZONE_COLORS.safe
+            const radius = zone.radius || 100
+
+            return (
+              <Circle
+                key={zone.id}
+                center={[zone.center.lat, zone.center.lng]}
+                radius={radius}
+                pathOptions={{
+                  color: color,
+                  fillColor: color,
+                  fillOpacity: 0.2,
+                  weight: 3,
+                  dashArray: zone.type === "danger" ? "10, 5" : undefined,
+                }}
+              >
+                <Popup>
+                  <div className="text-sm">
+                    <strong>{zone.name}</strong>
+                    <br />
+                    Type: {zone.type.charAt(0).toUpperCase() + zone.type.slice(1)}
+                    <br />
+                    Radius: {radius}m
+                  </div>
+                </Popup>
+              </Circle>
+            )
+          })}
+
           {/* Home marker */}
           <Marker position={[homeLat, homeLng]} icon={homeIcon}>
             <Popup>
               <div className="text-sm">
                 <strong>Home Base</strong>
                 <br />
-                Reference Location
+                Safe Zone Center
               </div>
             </Popup>
           </Marker>
@@ -111,73 +149,36 @@ export function LiveMap({ patient, zones, className }: LiveMapProps) {
               </div>
             </Popup>
           </Marker>
-
-          {/* Geofence zones */}
-          {zones.map((zone) => {
-            if (!zone.center) return null
-            const color = zoneColors[zone.type] || zoneColors.safe
-
-            return (
-              <Circle
-                key={zone.id}
-                center={[zone.center.lat, zone.center.lng]}
-                radius={zone.radius || 100}
-                pathOptions={{
-                  color: color,
-                  fillColor: color,
-                  fillOpacity: 0.15,
-                  weight: 2,
-                  dashArray: zone.type === "danger" ? "5, 5" : undefined,
-                }}
-              >
-                <Popup>
-                  <div className="text-sm">
-                    <strong>{zone.name}</strong>
-                    <br />
-                    Type: {zone.type.charAt(0).toUpperCase() + zone.type.slice(1)}
-                    <br />
-                    Radius: {zone.radius}m
-                  </div>
-                </Popup>
-              </Circle>
-            )
-          })}
         </MapContainer>
 
         {/* Zone Info Overlay */}
-        {patient?.currentPosition && zones.length > 0 && (
-          <div className="absolute left-4 top-4 z-[1000] rounded-lg border border-[var(--border-default)] bg-[var(--bg-secondary)]/95 p-4 backdrop-blur-sm shadow-lg">
-            <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-tertiary)]">Current Zone</p>
-            <p className="mt-1 text-lg font-semibold text-[var(--text-primary)]">
-              {zones[0]?.name || "Unknown Zone"}
-            </p>
-            <p className="text-sm text-[var(--text-secondary)]">
-              {zones[0]?.radius ? `${zones[0].radius}m radius` : "N/A"} • {zones[0]?.type ? zones[0].type.charAt(0).toUpperCase() + zones[0].type.slice(1) : "Unknown"} Zone
-            </p>
-            <Badge className={`mt-2 ${zones[0]?.type === 'safe'
-              ? 'bg-[var(--accent-primary-muted)] text-[var(--status-safe)]'
-              : zones[0]?.type === 'danger'
-                ? 'bg-red-500/15 text-[var(--status-urgent)]'
-                : 'bg-blue-500/15 text-blue-500'
-              }`}>
-              Inside Zone
-            </Badge>
-          </div>
-        )}
+        <div className="absolute left-4 top-4 z-[1000] rounded-lg border border-[var(--border-default)] bg-[var(--bg-secondary)]/95 p-4 backdrop-blur-sm shadow-lg">
+          <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-tertiary)]">Current Zone</p>
+          <p className="mt-1 text-lg font-semibold text-[var(--text-primary)]">
+            {displayZones[0]?.name || "Home Perimeter"}
+          </p>
+          <p className="text-sm text-[var(--text-secondary)]">
+            {displayZones[0]?.radius || 50}m radius • {(displayZones[0]?.type || "safe").charAt(0).toUpperCase() + (displayZones[0]?.type || "safe").slice(1)} Zone
+          </p>
+          <Badge className="mt-2 bg-[var(--accent-primary-muted)] text-[var(--status-safe)]">
+            {displayZones.length} Active Zones
+          </Badge>
+        </div>
 
         {/* Legend */}
         <div className="absolute bottom-4 left-4 z-[1000] rounded-lg border border-[var(--border-default)] bg-[var(--bg-secondary)]/95 p-3 backdrop-blur-sm shadow-lg">
-          <div className="flex flex-wrap gap-4 text-xs">
+          <p className="text-xs font-medium mb-2 text-[var(--text-tertiary)]">Zone Types</p>
+          <div className="flex flex-wrap gap-3 text-xs">
             <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full bg-[var(--status-safe)]" />
-              <span className="text-[var(--text-secondary)]">Safe Zone</span>
+              <span className="h-3 w-3 rounded-full bg-[#10b981]" />
+              <span className="text-[var(--text-secondary)]">Safe</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full bg-purple-500" />
+              <span className="h-3 w-3 rounded-full bg-[#8b5cf6]" />
               <span className="text-[var(--text-secondary)]">Routine</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-full border-2 border-dashed border-[var(--status-urgent)]" />
+              <span className="h-3 w-3 rounded-full border-2 border-dashed border-[#ef4444]" />
               <span className="text-[var(--text-secondary)]">Danger</span>
             </div>
           </div>

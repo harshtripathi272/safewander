@@ -1,7 +1,8 @@
 export type PatientStatus = "safe" | "advisory" | "warning" | "urgent" | "emergency"
 export type AlertSeverity = "low" | "medium" | "high" | "critical"
 export type AlertStatus = "active" | "acknowledged" | "resolved" | "escalated"
-export type ZoneType = "safe" | "trusted" | "routine" | "danger"
+// Zone types from ALGORITHM_SPEC.md
+export type ZoneType = "safe" | "buffer" | "danger" | "restricted" | "routine" | "trusted"
 
 export interface Patient {
   id: string
