@@ -1,3 +1,5 @@
+"use client"
+
 import { AppShell } from "@/components/layout/app-shell"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -7,6 +9,9 @@ import { demoPatient } from "@/lib/data"
 import { cn } from "@/lib/utils"
 import { Settings, MapPin, Phone, MessageSquare, AlertTriangle, Star, Pill, Activity } from "lucide-react"
 import { GPSLinkSection } from "@/components/tracker/gps-link-section"
+import { usePatients } from "@/lib/hooks/use-patients"
+import { useParams, useRouter } from "next/navigation"
+import { toast } from "sonner"
 
 const statusConfig = {
   safe: { label: "SAFE", className: "bg-[var(--accent-primary-muted)] text-[var(--status-safe)]" },
@@ -17,12 +22,69 @@ const statusConfig = {
 }
 
 export default function PatientProfilePage() {
-  const patient = demoPatient
+  const params = useParams()
+  const { patients, isLoading } = usePatients()
+
+  // Find the patient by ID from URL params, fallback to demoPatient if not found
+  const patient = patients.find(p => p.id === params.id) || demoPatient
   const statusInfo = statusConfig[patient.status]
+  const router = useRouter()
 
   const age = Math.floor(
     (new Date().getTime() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000),
   )
+
+  const handleCall = (contactName?: string) => {
+    const message = contactName
+      ? `In production, this will connect to ${contactName}`
+      : "In production, this will connect to a real call"
+    toast.info(message, {
+      duration: 4000,
+      position: "top-right",
+    })
+  }
+
+  const handleExport = () => {
+    const exportData = {
+      patient: {
+        id: patient.id,
+        firstName: patient.firstName,
+        lastName: patient.lastName,
+        dateOfBirth: patient.dateOfBirth,
+        diagnosis: patient.diagnosis,
+        bloodType: patient.bloodType,
+        weight: patient.weight,
+        height: patient.height,
+        distinguishingFeatures: patient.distinguishingFeatures,
+        conditions: patient.conditions,
+        medications: patient.medications,
+        allergies: patient.allergies,
+        status: patient.status,
+      },
+      device: patient.device,
+      emergencyContacts: patient.emergencyContacts,
+      behavioralInsights: {
+        wanderingTriggers: patient.wanderingTriggers,
+        calmingStrategies: patient.calmingStrategies,
+      },
+      exportedAt: new Date().toISOString(),
+    }
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `patient-${patient.firstName}-${patient.lastName}-${new Date().toISOString().split('T')[0]}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+
+    toast.success("Patient profile exported successfully!")
+  }
+
+  const handleEditProfile = () => {
+    toast.info("Edit profile functionality coming soon!")
+    // In a real app: router.push(`/patients/${patient.id}/edit`)
+  }
 
   return (
     <AppShell
@@ -31,10 +93,10 @@ export default function PatientProfilePage() {
       <div className="space-y-6">
         {/* Header Actions */}
         <div className="flex justify-end gap-2">
-          <Button variant="outline" className="border-[var(--border-default)] bg-transparent">
+          <Button onClick={handleExport} variant="outline" className="border-[var(--border-default)] bg-transparent">
             Export
           </Button>
-          <Button className="bg-[var(--accent-primary)]">
+          <Button onClick={handleEditProfile} className="bg-[var(--accent-primary)]">
             <Settings className="mr-2 h-4 w-4" />
             Edit Profile
           </Button>
@@ -276,7 +338,7 @@ export default function PatientProfilePage() {
                     </div>
                   </div>
                   <div className="mt-3 flex gap-2">
-                    <Button size="sm" className="flex-1 bg-[var(--accent-primary)]">
+                    <Button onClick={() => handleCall(contact.name)} size="sm" className="flex-1 bg-[var(--accent-primary)]">
                       <Phone className="mr-2 h-4 w-4" />
                       Call
                     </Button>
@@ -293,6 +355,7 @@ export default function PatientProfilePage() {
               ))}
 
               <Button
+                onClick={() => handleCall("Emergency Services")}
                 variant="outline"
                 className="w-full border-[var(--status-urgent)] text-[var(--status-urgent)] hover:bg-red-500/10 bg-transparent"
               >
