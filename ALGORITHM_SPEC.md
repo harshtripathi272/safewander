@@ -161,15 +161,6 @@ Range: 100m - 5000m
 - End: **6am (06:00)**
 
 ---
-
-## Design Principles
-
-✅ **No ML** - Simple statistical rules only  
-✅ **Inspectable** - Every decision traceable  
-✅ **Configurable** - All weights adjustable  
-✅ **Real-time** - 5-second processing cycle  
-✅ **Manual Override** - Caregiver always in control  
-
 ---
 
 ## Example Flow
