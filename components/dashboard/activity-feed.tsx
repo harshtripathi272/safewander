@@ -60,7 +60,10 @@ export function ActivityFeed({ activities }: ActivityFeedProps) {
               </div>
               <div className="flex-1 border-b border-[var(--border-subtle)] pb-4 last:border-0 last:pb-0">
                 <p className="text-sm font-medium text-[var(--text-primary)]">{activity.title}</p>
-                <p className="text-xs text-[var(--text-tertiary)]">
+                {activity.description && (
+                  <p className="text-xs text-[var(--text-secondary)] mt-0.5">{activity.description}</p>
+                )}
+                <p className="text-xs text-[var(--text-tertiary)] mt-1">
                   {formatTime(activity.timestamp)}
                   {activity.zone && ` • Zone: ${activity.zone}`}
                 </p>

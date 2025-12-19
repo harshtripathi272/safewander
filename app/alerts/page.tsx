@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { AppShell } from "@/components/layout/app-shell"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,8 +11,7 @@ import { cn } from "@/lib/utils"
 import { usePatients } from "@/lib/hooks/use-patients"
 import { useAlerts } from "@/lib/hooks/use-alerts"
 import { apiClient } from "@/lib/api-client"
-import { SimulationPanel } from "@/components/dashboard/simulation-panel"
-import { Bell, MapPin, Heart, Check, AlertTriangle, History, Video, Activity, Users, ChevronDown, Trash2 } from "lucide-react"
+import { Bell, MapPin, Heart, Check, AlertTriangle, History, Video, Activity, Users, ChevronDown, Trash2, Radio } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -58,17 +57,36 @@ function formatTime(timestamp: string) {
 export default function AlertsPage() {
   const { patients } = usePatients()
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null)
-  
+
   // Use selected patient or first patient as default
   const selectedPatient = patients.find(p => p.id === selectedPatientId) || patients[0]
   const { alerts, isLoading, mutate } = useAlerts(selectedPatient?.id)
 
   const [selectedAlert, setSelectedAlert] = useState<any>(null)
   const [filter, setFilter] = useState("all")
+  const [lastAlertCount, setLastAlertCount] = useState(0)
 
-  if (!selectedAlert && alerts.length > 0) {
-    setSelectedAlert(alerts[0])
-  }
+  // Auto-select newest alert when new alerts arrive (real-time sync)
+  useEffect(() => {
+    if (alerts.length > 0) {
+      // If we got new alerts, auto-select the newest one
+      if (alerts.length > lastAlertCount) {
+        setSelectedAlert(alerts[0]) // Alerts are sorted by timestamp desc
+        // Show toast for new alert
+        if (lastAlertCount > 0) {
+          toast.info(`New alert: ${(alerts[0] as any).message || alerts[0].title || 'Alert received'}`, {
+            duration: 3000,
+            position: "top-right",
+          })
+        }
+      }
+      // If no alert is selected, select the first one
+      else if (!selectedAlert) {
+        setSelectedAlert(alerts[0])
+      }
+      setLastAlertCount(alerts.length)
+    }
+  }, [alerts, lastAlertCount, selectedAlert])
 
   const filteredAlerts = alerts.filter((alert: any) => {
     if (filter === "all") return true
@@ -223,13 +241,13 @@ export default function AlertsPage() {
                   <AlertDialogHeader>
                     <AlertDialogTitle>Clear All Alerts?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will permanently delete all alerts for {selectedPatient.firstName} {selectedPatient.lastName}. 
+                      This will permanently delete all alerts for {selectedPatient.firstName} {selectedPatient.lastName}.
                       This action cannot be undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction 
+                    <AlertDialogAction
                       onClick={handleClearAllAlerts}
                       className="bg-red-500 hover:bg-red-600"
                     >
@@ -457,11 +475,6 @@ export default function AlertsPage() {
                 )}
               </CardContent>
             </Card>
-          )}
-
-          {/* Simulation Panel - Only in development */}
-          {process.env.NODE_ENV === 'development' && (
-            <SimulationPanel patientId={selectedPatient.id} />
           )}
         </div>
       </div>

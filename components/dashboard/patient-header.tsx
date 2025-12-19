@@ -7,7 +7,7 @@ import { calculateZoneInfo, getStatusConfig, getZoneColor, getStatusColor, type 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Battery, Signal, MapPin, History, AlertTriangle } from "lucide-react"
+import { Battery, Signal, MapPin, AlertTriangle } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface PatientHeaderProps {
@@ -176,20 +176,6 @@ export function PatientHeader({ patient, zones = [], currentZoneName, riskScore 
             )} />
             <span className="text-[var(--text-secondary)] capitalize">{device.signalStrength || "Unknown"}</span>
           </div>
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="border-[var(--border-default)] bg-transparent">
-            <History className="mr-2 h-4 w-4" />
-            History
-          </Button>
-          {effectiveStatus !== "safe" && (
-            <Button size="sm" className="bg-red-500 hover:bg-red-600 text-white">
-              <AlertTriangle className="mr-2 h-4 w-4" />
-              Respond
-            </Button>
-          )}
         </div>
       </div>
     </div>

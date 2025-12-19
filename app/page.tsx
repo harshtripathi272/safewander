@@ -5,7 +5,6 @@ import { AppShell } from "@/components/layout/app-shell"
 import { PatientHeader } from "@/components/dashboard/patient-header"
 import { LiveMapWrapper } from "@/components/dashboard/live-map-wrapper"
 import { QuickActions } from "@/components/dashboard/quick-actions"
-import { VitalsPanel } from "@/components/dashboard/vitals-panel"
 import { ActivityFeed } from "@/components/dashboard/activity-feed"
 import { SimulationPanel } from "@/components/dashboard/simulation-panel"
 import { usePatients } from "@/lib/hooks/use-patients"
@@ -19,6 +18,7 @@ import { ChevronDown, Users, Plus } from "lucide-react"
 import { demoZones } from "@/lib/data"
 import { calculateZoneInfo, getStatusConfig, getStatusColor } from "@/lib/zone-utils"
 import Link from "next/link"
+import { GPSLinkSection } from "@/components/tracker/gps-link-section"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,11 +30,11 @@ import {
 export default function DashboardPage() {
   const { patients, isLoading: patientsLoading } = usePatients()
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null)
-  
+
   // Use selected patient or first patient as default
   const selectedPatient = patients.find(p => p.id === selectedPatientId) || patients[0]
   const { zones } = useZones(selectedPatient?.id)
-  
+
   // ALWAYS show zones - fallback to demo zones if API returns empty
   const displayZones = zones.length > 0 ? zones : demoZones
   const { activities } = useActivities(selectedPatient?.id)
@@ -117,7 +117,7 @@ export default function DashboardPage() {
             <div className="flex items-center gap-3">
               <Badge className="bg-purple-500 text-white">DEMO MODE</Badge>
               <p className="text-sm text-[var(--text-secondary)]">
-                Use the Demo Control Panel below to simulate scenarios for your video
+                Use the Demo Control Panel Below To Simulate Our Demo Patient
               </p>
             </div>
           </div>
@@ -140,7 +140,7 @@ export default function DashboardPage() {
                         </AvatarFallback>
                       </Avatar>
                       <span className="font-medium">{selectedPatient.firstName} {selectedPatient.lastName}</span>
-                      <Badge 
+                      <Badge
                         className={selectedPatientStatusConfig.className}
                         style={{ marginLeft: '4px' }}
                       >
@@ -199,6 +199,12 @@ export default function DashboardPage() {
         {/* Patient Header - Pass zones for dynamic zone detection */}
         <PatientHeader patient={selectedPatient} zones={displayZones} />
 
+        {/* GPS Location Access Section */}
+        <GPSLinkSection
+          patientId={selectedPatient.id}
+          patientName={`${selectedPatient.firstName} ${selectedPatient.lastName}`}
+        />
+
         {/* Main Content Grid */}
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Left - Map (takes 2 columns) */}
@@ -209,10 +215,9 @@ export default function DashboardPage() {
             {isDemoMode && <SimulationPanel patientId={selectedPatient.id} />}
           </div>
 
-          {/* Right - Actions & Vitals */}
+          {/* Right - Actions & Activity */}
           <div className="space-y-6">
             <QuickActions />
-            <VitalsPanel />
             <ActivityFeed activities={activities} />
           </div>
         </div>

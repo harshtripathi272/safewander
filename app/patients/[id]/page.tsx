@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { demoPatient } from "@/lib/data"
 import { cn } from "@/lib/utils"
 import { Settings, MapPin, Phone, MessageSquare, AlertTriangle, Star, Pill, Activity } from "lucide-react"
+import { GPSLinkSection } from "@/components/tracker/gps-link-section"
 
 const statusConfig = {
   safe: { label: "SAFE", className: "bg-[var(--accent-primary-muted)] text-[var(--status-safe)]" },
@@ -130,6 +131,12 @@ export default function PatientProfilePage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* GPS Location Access Section */}
+        <GPSLinkSection
+          patientId={patient.id}
+          patientName={`${patient.firstName} ${patient.lastName}`}
+        />
 
         {/* Bottom Row */}
         <div className="grid gap-6 lg:grid-cols-3">

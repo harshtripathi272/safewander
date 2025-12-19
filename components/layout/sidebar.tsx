@@ -20,11 +20,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 
-const navItems = [
+const navItems: { href: string; label: string; icon: any; badge?: number }[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/map", label: "Live Map", icon: Map },
   { href: "/patients", label: "Patients", icon: Users },
-  { href: "/alerts", label: "Alerts & Timeline", icon: Bell, badge: 3 },
+  { href: "/alerts", label: "Alerts & Timeline", icon: Bell },
   { href: "/reports", label: "Reports", icon: FileText },
   { href: "/impact", label: "Impact Dashboard", icon: BarChart3 },
 ]

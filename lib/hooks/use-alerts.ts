@@ -7,8 +7,9 @@ export function useAlerts(patientId?: string, unacknowledgedOnly = false) {
     `/api/alerts?patient_id=${patientId || ''}&unacknowledged=${unacknowledgedOnly}`,
     () => apiClient.getAlerts(patientId, unacknowledgedOnly),
     {
-      refreshInterval: 3000,
+      refreshInterval: 2000, // Faster refresh for real-time alerts
       revalidateOnFocus: true,
+      dedupingInterval: 1000,
     }
   )
 
