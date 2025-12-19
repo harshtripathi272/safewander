@@ -82,7 +82,7 @@ export default function PatientProfilePage() {
   }
 
   const handleEditProfile = () => {
-    toast.info("Edit profile functionality coming soon!")
+    toast.info("Can't Edit Dummy Profile")
     // In a real app: router.push(`/patients/${patient.id}/edit`)
   }
 
