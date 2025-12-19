@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { AppShell } from "@/components/layout/app-shell"
 import { PatientHeader } from "@/components/dashboard/patient-header"
 import { LiveMapWrapper } from "@/components/dashboard/live-map-wrapper"
@@ -14,12 +14,16 @@ import { useActivities } from "@/lib/hooks/use-alerts"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ChevronDown, Users } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
+import { ChevronDown, Users, Plus } from "lucide-react"
 import { demoZones } from "@/lib/data"
+import { calculateZoneInfo, getStatusConfig, getStatusColor } from "@/lib/zone-utils"
+import Link from "next/link"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
@@ -35,15 +39,29 @@ export default function DashboardPage() {
   const displayZones = zones.length > 0 ? zones : demoZones
   const { activities } = useActivities(selectedPatient?.id)
 
+  // Calculate zone info for selected patient using SINGLE SOURCE OF TRUTH
+  const selectedPatientZoneInfo = useMemo(() => {
+    if (!selectedPatient?.currentPosition) return null
+    return calculateZoneInfo(
+      selectedPatient.currentPosition.lat ?? 37.7749,
+      selectedPatient.currentPosition.lng ?? -122.4194,
+      displayZones
+    )
+  }, [selectedPatient?.currentPosition, displayZones])
+
+  // Get the calculated status for the selected patient
+  const selectedPatientStatus = selectedPatientZoneInfo?.status || 'safe'
+  const selectedPatientStatusConfig = getStatusConfig(selectedPatientStatus)
+
   // Debug logging for position updates
   if (selectedPatient?.currentPosition) {
-    console.log('[Dashboard] Patient position updated:', selectedPatient.currentPosition)
+    console.log('[Dashboard] Patient position updated:', selectedPatient.currentPosition, 'Status:', selectedPatientStatus)
   }
 
   // Check if we're in demo mode (you can toggle this)
   const isDemoMode = process.env.NODE_ENV === 'development'
 
-  if (patientsLoading || !selectedPatient) {
+  if (patientsLoading) {
     return (
       <AppShell title="Dashboard">
         <div className="flex h-96 items-center justify-center">
@@ -54,6 +72,40 @@ export default function DashboardPage() {
         </div>
       </AppShell>
     )
+  }
+
+  // Show empty state if no patients
+  if (!selectedPatient || patients.length === 0) {
+    return (
+      <AppShell title="Dashboard">
+        <div className="flex h-96 flex-col items-center justify-center gap-6">
+          <div className="text-center">
+            <Users className="h-16 w-16 text-[var(--text-tertiary)] mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-[var(--text-primary)]">No Patients Yet</h2>
+            <p className="mt-2 text-[var(--text-secondary)]">
+              Add your first patient to start monitoring
+            </p>
+          </div>
+          <Link href="/patients">
+            <Button className="bg-[var(--accent-primary)]">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Patient
+            </Button>
+          </Link>
+        </div>
+      </AppShell>
+    )
+  }
+
+  // Helper to get status for any patient based on their position
+  const getPatientStatus = (patient: typeof selectedPatient) => {
+    if (!patient?.currentPosition) return 'safe'
+    const zoneInfo = calculateZoneInfo(
+      patient.currentPosition.lat ?? 37.7749,
+      patient.currentPosition.lng ?? -122.4194,
+      displayZones
+    )
+    return zoneInfo.status
   }
 
   return (
@@ -71,52 +123,78 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Patient Selector */}
-        {patients.length > 1 && (
-          <div className="flex items-center gap-3">
-            <Users className="h-5 w-5 text-[var(--text-tertiary)]" />
-            <span className="text-sm font-medium text-[var(--text-secondary)]">Viewing Patient:</span>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="gap-2">
-                  <Avatar className="h-6 w-6">
-                    <AvatarImage src={selectedPatient.photo || "/placeholder.svg"} />
-                    <AvatarFallback>
-                      {selectedPatient.firstName[0]}{selectedPatient.lastName[0]}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span>{selectedPatient.firstName} {selectedPatient.lastName}</span>
-                  <ChevronDown className="h-4 w-4 text-[var(--text-tertiary)]" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-64">
-                {patients.map((patient) => (
-                  <DropdownMenuItem
-                    key={patient.id}
-                    onClick={() => setSelectedPatientId(patient.id)}
-                    className="gap-3 cursor-pointer"
-                  >
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={patient.photo || "/placeholder.svg"} />
-                      <AvatarFallback>
-                        {patient.firstName[0]}{patient.lastName[0]}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <p className="font-medium">{patient.firstName} {patient.lastName}</p>
-                      <p className="text-xs text-[var(--text-tertiary)]">
-                        {patient.device?.id || "No device"}
-                      </p>
-                    </div>
-                    {patient.id === selectedPatient.id && (
-                      <Badge variant="secondary" className="ml-2">Active</Badge>
-                    )}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )}
+        {/* Patient Selector - Always visible */}
+        <Card className="border-[var(--border-subtle)] bg-[var(--bg-secondary)]">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Users className="h-5 w-5 text-[var(--accent-primary)]" />
+                <span className="text-sm font-medium text-[var(--text-secondary)]">Currently Monitoring:</span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="gap-2 h-10">
+                      <Avatar className="h-6 w-6">
+                        <AvatarImage src={selectedPatient.photo || "/placeholder.svg"} />
+                        <AvatarFallback>
+                          {selectedPatient.firstName?.[0]}{selectedPatient.lastName?.[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="font-medium">{selectedPatient.firstName} {selectedPatient.lastName}</span>
+                      <Badge 
+                        className={selectedPatientStatusConfig.className}
+                        style={{ marginLeft: '4px' }}
+                      >
+                        {selectedPatientStatus.toUpperCase()}
+                      </Badge>
+                      <ChevronDown className="h-4 w-4 text-[var(--text-tertiary)]" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-72">
+                    {patients.map((patient) => {
+                      const patientStatus = getPatientStatus(patient)
+                      const statusConfig = getStatusConfig(patientStatus)
+                      return (
+                        <DropdownMenuItem
+                          key={patient.id}
+                          onClick={() => setSelectedPatientId(patient.id)}
+                          className="gap-3 cursor-pointer p-3"
+                        >
+                          <Avatar className="h-10 w-10">
+                            <AvatarImage src={patient.photo || "/placeholder.svg"} />
+                            <AvatarFallback>
+                              {patient.firstName?.[0]}{patient.lastName?.[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <p className="font-medium">{patient.firstName} {patient.lastName}</p>
+                            <p className="text-xs text-[var(--text-tertiary)]">
+                              {patient.device?.id || "No device"} • Battery: {patient.device?.batteryLevel || 100}%
+                            </p>
+                          </div>
+                          <Badge className={statusConfig.className}>
+                            {patientStatus.toUpperCase()}
+                          </Badge>
+                        </DropdownMenuItem>
+                      )
+                    })}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href="/patients" className="gap-2 cursor-pointer p-3">
+                        <Plus className="h-4 w-4" />
+                        <span>Add New Patient</span>
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-xs">
+                  {patients.length} Patient{patients.length !== 1 ? 's' : ''}
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Patient Header - Pass zones for dynamic zone detection */}
         <PatientHeader patient={selectedPatient} zones={displayZones} />

@@ -157,12 +157,47 @@ class ApiClient {
 
   async getZones(patientId?: string): Promise<Zone[]> {
     const query = patientId ? `?patient_id=${patientId}` : ""
-    return this.request<Zone[]>(`/api/tracking/zones${query}`)
+    const data = await this.request<any[]>(`/api/tracking/zones${query}`)
+    
+    // Transform backend format to frontend format
+    return data.map(zone => {
+      // Backend returns coordinates as array [{lat, lng}], frontend expects center as {lat, lng}
+      let center = { lat: 37.7749, lng: -122.4194 } // Default to San Francisco
+      
+      if (zone.coordinates && Array.isArray(zone.coordinates) && zone.coordinates.length > 0) {
+        const firstCoord = zone.coordinates[0]
+        center = {
+          lat: firstCoord.lat || firstCoord.latitude || 37.7749,
+          lng: firstCoord.lng || firstCoord.longitude || -122.4194
+        }
+      } else if (zone.center) {
+        center = zone.center
+      }
+      
+      return {
+        id: zone.id,
+        patientId: zone.patient_id || zone.patientId,
+        name: zone.name,
+        type: zone.type || 'safe',
+        shape: 'circle',
+        center,
+        radius: zone.radius || 100,
+        isActive: zone.active !== false,
+        color: zone.type === 'danger' ? '#ef4444' : zone.type === 'routine' ? '#8b5cf6' : '#10b981',
+      } as Zone
+    })
   }
 
   async createZone(data: any): Promise<Zone> {
     return this.request<Zone>("/api/tracking/zones", {
       method: "POST",
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateZone(id: string, data: any): Promise<Zone> {
+    return this.request<Zone>(`/api/tracking/zones/${id}`, {
+      method: "PUT",
       body: JSON.stringify(data),
     })
   }
@@ -207,6 +242,13 @@ class ApiClient {
     })
   }
 
+  async clearAlerts(patientId?: string): Promise<any> {
+    const query = patientId ? `?patient_id=${patientId}` : ""
+    return this.request<any>(`/api/alerts/clear${query}`, {
+      method: "DELETE",
+    })
+  }
+
   async getActivities(patientId: string, limit = 50): Promise<ActivityEvent[]> {
     return this.request<ActivityEvent[]>(`/api/alerts/activities/${patientId}?limit=${limit}`)
   }
@@ -239,6 +281,13 @@ class ApiClient {
     return this.request<any>(`/api/emergency/${id}/resolve`, {
       method: "PUT",
       body: JSON.stringify({ resolution_type: resolutionType }),
+    })
+  }
+
+  async clearEmergencies(patientId?: string): Promise<any> {
+    const query = patientId ? `?patient_id=${patientId}` : ""
+    return this.request<any>(`/api/emergency/clear${query}`, {
+      method: "DELETE",
     })
   }
 

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, delete
 from typing import List
 from database import get_db, Alert, Patient, Activity
 from schemas import AlertCreate, AlertResponse, ActivityCreate, ActivityResponse
@@ -123,6 +123,36 @@ async def resolve_alert(alert_id: str, db: AsyncSession = Depends(get_db)):
     await db.commit()
     await db.refresh(alert)
     return alert
+
+@router.delete("/clear")
+async def clear_all_alerts(
+    patient_id: str = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """Clear all alerts or alerts for a specific patient"""
+    if patient_id:
+        # Delete alerts for specific patient
+        await db.execute(delete(Alert).where(Alert.patient_id == patient_id))
+        
+        # Reset patient's active alerts count
+        result = await db.execute(select(Patient).where(Patient.id == patient_id))
+        patient = result.scalar_one_or_none()
+        if patient:
+            patient.active_alerts = 0
+            patient.status = "safe"
+    else:
+        # Delete all alerts
+        await db.execute(delete(Alert))
+        
+        # Reset all patients' active alerts count
+        result = await db.execute(select(Patient))
+        patients = result.scalars().all()
+        for patient in patients:
+            patient.active_alerts = 0
+            patient.status = "safe"
+    
+    await db.commit()
+    return {"message": "Alerts cleared successfully"}
 
 @router.get("/activities/{patient_id}", response_model=List[ActivityResponse])
 async def get_activities(

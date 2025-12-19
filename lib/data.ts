@@ -172,29 +172,6 @@ export const demoAlerts: Alert[] = [
     resolvedBy: "Jane Doe",
     resolution: "Patient returned to safe zone",
   },
-  {
-    id: "9921",
-    patientId: "1",
-    type: "vitals",
-    severity: "medium",
-    status: "resolved",
-    title: "Elevated Heart Rate",
-    description: "Heart rate detected above normal threshold (95 bpm).",
-    triggeredAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-    triggeredLocation: { lat: 37.7749, lng: -122.4194 },
-    escalationLevel: 1,
-    escalationHistory: [
-      {
-        level: 1,
-        triggeredAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-        action: "Vitals Alert",
-        recipient: "Primary Caregiver",
-      },
-    ],
-    resolvedAt: new Date(Date.now() - 4.5 * 60 * 60 * 1000).toISOString(),
-    resolvedBy: "System",
-    resolution: "Heart rate returned to normal",
-  },
 ]
 
 export const demoActivities: ActivityEvent[] = [
@@ -227,18 +204,10 @@ export const demoActivities: ActivityEvent[] = [
   {
     id: "4",
     patientId: "1",
-    type: "vitals",
-    title: "Vitals Check",
-    description: "Heart rate: 72 bpm, normal",
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: "5",
-    patientId: "1",
     type: "zone_enter",
     title: "Entered Kitchen",
     description: "Patient moved to kitchen area",
-    timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
     zone: "Kitchen",
   },
 ]

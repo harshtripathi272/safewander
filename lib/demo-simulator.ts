@@ -418,21 +418,6 @@ export class DemoSimulator {
   }
 
   /**
-   * Vitals alert
-   */
-  async simulateVitalsAlert(patientId: string) {
-    console.log('💓 Simulating elevated heart rate...')
-    await apiClient.createAlert({
-      patient_id: patientId,
-      type: 'vitals',
-      severity: 'high',
-      title: 'Elevated Heart Rate Detected',
-      description: 'Heart rate: 102 bpm (normal range: 60-90 bpm). May indicate anxiety or physical exertion.',
-    })
-    console.log('✅ Vitals alert created')
-  }
-
-  /**
    * Reset demo
    */
   async resetDemo(patientId: string) {
@@ -497,8 +482,6 @@ export const demo = {
   reset: (id = '1') => demoSimulator.resetDemo(id),
   /** Trigger battery alert */
   battery: (id = '1') => demoSimulator.simulateBatteryDrain(id),
-  /** Trigger vitals alert */
-  vitals: (id = '1') => demoSimulator.simulateVitalsAlert(id),
 }
 
 // Browser console access
@@ -513,6 +496,5 @@ if (typeof window !== 'undefined') {
   console.log('  demo.returnHome() → Bring patient back safely')
   console.log('  demo.reset()     → Clear alerts, reset position')
   console.log('  demo.battery()   → Create battery alert')
-  console.log('  demo.vitals()    → Create vitals alert')
   console.log('')
 }

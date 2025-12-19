@@ -3,11 +3,12 @@
 import { useEffect, useState, useMemo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { MapContainer, TileLayer, Marker, Circle, Popup, useMap } from "react-leaflet"
+import { MapContainer, TileLayer, Marker, Circle, Popup, useMap, useMapEvents } from "react-leaflet"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 import type { Patient, Zone } from "@/lib/types"
 import { demoZones } from "@/lib/data"
+import { calculateZoneInfo, getZoneColor, getStatusColor, ZONE_COLORS, type PatientStatus } from "@/lib/zone-utils"
 
 // Fix for default marker icon
 const createCustomIcon = (color: string) => {
@@ -45,147 +46,52 @@ function MapUpdater({ center }: { center: [number, number] }) {
   return null
 }
 
-// Zone colors from ALGORITHM_SPEC.md
-const ZONE_COLORS: Record<string, string> = {
-  safe: "#10b981",
-  buffer: "#3b82f6",
-  danger: "#ef4444",
-  restricted: "#f97316",
-  routine: "#8b5cf6",
-  trusted: "#3b82f6",
-}
+// Component to show coordinates on hover/click
+function MapCoordinateTracker() {
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [clickedCoords, setClickedCoords] = useState<{ lat: number; lng: number } | null>(null)
 
-// Calculate distance between two points in meters (Haversine formula)
-function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  if (lat1 === lat2 && lng1 === lng2) return 0
+  useMapEvents({
+    mousemove(e) {
+      setCoords({ lat: e.latlng.lat, lng: e.latlng.lng })
+    },
+    mouseout() {
+      setCoords(null)
+    },
+    click(e) {
+      setClickedCoords({ lat: e.latlng.lat, lng: e.latlng.lng })
+      setTimeout(() => setClickedCoords(null), 3000)
+    },
+  })
 
-  const R = 6371000 // Earth's radius in meters
-  const dLat = (lat2 - lat1) * Math.PI / 180
-  const dLng = (lng2 - lng1) * Math.PI / 180
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLng / 2) * Math.sin(dLng / 2)
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  return R * c
-}
+  const displayCoords = clickedCoords || coords
 
-// Determine current zone based on patient position
-function getCurrentZone(patientLat: number, patientLng: number, zones: Zone[]): {
-  zone: Zone | null;
-  status: string;
-  distance: number;
-  closestSafeZone: Zone | null;
-  isInSafeZone: boolean;
-} {
-  if (!zones?.length) {
-    return { zone: null, status: "safe", distance: 0, closestSafeZone: null, isInSafeZone: true }
-  }
+  if (!displayCoords) return null
 
-  let currentZone: Zone | null = null
-  let closestSafeZone: Zone | null = null
-  let minDistanceToSafeCenter = Infinity
-  let isInDanger = false
-  let isInRestricted = false
-  let isInSafe = false
-  let isInBuffer = false
-  let isInRoutine = false
-
-  // Check all zones and find which ones the patient is inside
-  for (const zone of zones) {
-    if (!zone.center) continue
-
-    const distance = calculateDistance(patientLat, patientLng, zone.center.lat, zone.center.lng)
-    const zoneRadius = zone.radius || 100
-    const isInside = distance <= zoneRadius
-
-    // Track closest safe zone
-    if (zone.type === "safe") {
-      if (distance < minDistanceToSafeCenter) {
-        minDistanceToSafeCenter = distance
-        closestSafeZone = zone
-      }
-    }
-
-    if (isInside) {
-      switch (zone.type) {
-        case "danger":
-          isInDanger = true
-          currentZone = zone
-          break
-        case "restricted":
-          isInRestricted = true
-          if (!isInDanger) currentZone = zone
-          break
-        case "buffer":
-          isInBuffer = true
-          if (!isInDanger && !isInRestricted && !isInSafe) currentZone = zone
-          break
-        case "safe":
-          isInSafe = true
-          if (!isInDanger && !isInRestricted) currentZone = zone
-          break
-        case "routine":
-          isInRoutine = true
-          if (!currentZone) currentZone = zone
-          break
-      }
-    }
-  }
-
-  // Determine status
-  let status = "safe"
-
-  if (isInDanger) {
-    status = "emergency"
-  } else if (isInRestricted) {
-    status = "urgent"
-  } else if (isInSafe) {
-    status = "safe"
-  } else if (isInBuffer) {
-    status = "advisory"
-  } else if (isInRoutine) {
-    status = "advisory"
-  } else {
-    // Not in any zone
-    if (closestSafeZone) {
-      const safeZoneRadius = closestSafeZone.radius || 50
-      const distanceFromSafeEdge = minDistanceToSafeCenter - safeZoneRadius
-
-      if (distanceFromSafeEdge > 150) {
-        status = "warning"
-      } else {
-        status = "advisory"
-      }
-    } else {
-      status = "warning"
-    }
-  }
-
-  return {
-    zone: currentZone,
-    status,
-    distance: minDistanceToSafeCenter,
-    closestSafeZone,
-    isInSafeZone: isInSafe
-  }
-}
-
-// Status color mapping
-const STATUS_COLORS: Record<string, string> = {
-  safe: "#10b981",
-  advisory: "#3b82f6",
-  warning: "#f59e0b",
-  urgent: "#f97316",
-  emergency: "#ef4444",
+  return (
+    <div 
+      className="absolute top-4 right-4 z-[1000] bg-[var(--bg-secondary)]/95 backdrop-blur-sm border border-[var(--border-default)] rounded-lg px-3 py-2 shadow-lg"
+      style={{ pointerEvents: 'none' }}
+    >
+      <div className="flex items-center gap-2 text-sm">
+        <span className="text-[var(--text-tertiary)]">
+          {clickedCoords ? '📍' : '🖱️'}
+        </span>
+        <span className="font-mono text-[var(--text-primary)]">
+          {displayCoords.lat.toFixed(6)}, {displayCoords.lng.toFixed(6)}
+        </span>
+      </div>
+    </div>
+  )
 }
 
 export function LiveMap({ patient, zones, className }: LiveMapProps) {
   const [mapReady, setMapReady] = useState(false)
 
-  // ALWAYS use demo zones - this ensures zones are visible
+  // Use provided zones or fall back to demoZones for consistency
   const displayZones = useMemo(() => {
-    return demoZones // Always use demo zones for reliability
-  }, [])
+    return zones.length > 0 ? zones : demoZones
+  }, [zones])
 
   // San Francisco coordinates (matching demoZones)
   const patientLat = patient?.currentPosition?.lat ?? 37.7749
@@ -193,18 +99,14 @@ export function LiveMap({ patient, zones, className }: LiveMapProps) {
   const homeLat = 37.7749
   const homeLng = -122.4194
 
-  // Calculate current zone based on patient position - updates in real-time
-  const currentZoneInfo = useMemo(() => {
-    return getCurrentZone(patientLat, patientLng, displayZones)
+  // Calculate current zone using the SINGLE SOURCE OF TRUTH
+  const zoneInfo = useMemo(() => {
+    return calculateZoneInfo(patientLat, patientLng, displayZones)
   }, [patientLat, patientLng, displayZones])
 
-  // Determine display values
-  const zoneDisplayName = currentZoneInfo.zone?.name ||
-    (currentZoneInfo.closestSafeZone ? `Outside ${currentZoneInfo.closestSafeZone.name}` : "Unknown Location")
-  const zoneType = currentZoneInfo.zone?.type || (currentZoneInfo.status === "safe" ? "safe" : "unknown")
-  const zoneRadius = currentZoneInfo.zone?.radius || currentZoneInfo.closestSafeZone?.radius || 50
-  const statusColor = STATUS_COLORS[currentZoneInfo.status] || STATUS_COLORS.safe
-  const zoneColor = ZONE_COLORS[zoneType] || ZONE_COLORS.safe
+  // Get colors from zone info
+  const statusColor = getStatusColor(zoneInfo.status)
+  const zoneColor = getZoneColor(zoneInfo.zoneType)
 
   // Force map to be ready after mount
   useEffect(() => {
@@ -229,6 +131,7 @@ export function LiveMap({ patient, zones, className }: LiveMapProps) {
           />
 
           <MapUpdater center={[patientLat, patientLng]} />
+          <MapCoordinateTracker />
 
           {/* Render all zones */}
           {displayZones.map((zone) => {
@@ -274,19 +177,19 @@ export function LiveMap({ patient, zones, className }: LiveMapProps) {
             </Popup>
           </Marker>
 
-          {/* Patient marker - color based on current status */}
+          {/* Patient marker - color based on current status from zone calculation */}
           <Marker position={[patientLat, patientLng]} icon={createCustomIcon(statusColor)}>
             <Popup>
               <div className="text-sm">
                 <strong>{patient?.firstName} {patient?.lastName}</strong>
                 <br />
-                Zone: {zoneDisplayName}
+                Zone: {zoneInfo.zoneDisplayName}
                 <br />
-                Status: {currentZoneInfo.status.charAt(0).toUpperCase() + currentZoneInfo.status.slice(1)}
-                {!currentZoneInfo.isInSafeZone && currentZoneInfo.distance > 0 && (
+                Status: {zoneInfo.status.charAt(0).toUpperCase() + zoneInfo.status.slice(1)}
+                {!zoneInfo.isInSafeZone && zoneInfo.distance > 0 && (
                   <>
                     <br />
-                    Distance: {Math.round(currentZoneInfo.distance)}m from safe zone
+                    Distance: {Math.round(zoneInfo.distance)}m from safe zone
                   </>
                 )}
               </div>
@@ -301,13 +204,13 @@ export function LiveMap({ patient, zones, className }: LiveMapProps) {
         >
           <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-tertiary)]">Current Zone</p>
           <p className="mt-1 text-lg font-semibold" style={{ color: zoneColor }}>
-            {zoneDisplayName}
+            {zoneInfo.zoneDisplayName}
           </p>
           <p className="text-sm text-[var(--text-secondary)]">
-            {currentZoneInfo.zone ? (
-              <>{zoneRadius}m radius • {zoneType.charAt(0).toUpperCase() + zoneType.slice(1)} Zone</>
+            {zoneInfo.zone ? (
+              <>{zoneInfo.zone.radius || 100}m radius • {zoneInfo.zoneType.charAt(0).toUpperCase() + zoneInfo.zoneType.slice(1)} Zone</>
             ) : (
-              <>Outside all zones • {Math.round(currentZoneInfo.distance)}m from safe zone</>
+              <>Outside all zones • {Math.round(zoneInfo.distance)}m from safe zone</>
             )}
           </p>
           <div className="mt-2 flex items-center gap-2">
@@ -319,7 +222,7 @@ export function LiveMap({ patient, zones, className }: LiveMapProps) {
                 borderColor: statusColor
               }}
             >
-              {currentZoneInfo.status.toUpperCase()}
+              {zoneInfo.status.toUpperCase()}
             </Badge>
             <span className="text-xs text-[var(--text-tertiary)]">
               {displayZones.length} zones active

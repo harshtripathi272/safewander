@@ -3,7 +3,7 @@
 import useSWR from "swr"
 import { apiClient } from "@/lib/api-client"
 import type { Zone } from "@/lib/types"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 
 export function useLocations(patientId: string | undefined, limit = 100) {
   const { data, error, isLoading, mutate } = useSWR(
@@ -34,11 +34,64 @@ export function useZones(patientId: string | undefined) {
     }
   )
 
+  const createZone = useCallback(async (zoneData: Partial<Zone>) => {
+    try {
+      // Transform frontend format to backend format
+      const backendData = {
+        patient_id: zoneData.patientId || patientId,
+        name: zoneData.name,
+        type: zoneData.type || 'safe',
+        coordinates: zoneData.center ? [{ lat: zoneData.center.lat, lng: zoneData.center.lng }] : [],
+        radius: zoneData.radius || 100,
+        active: zoneData.isActive !== false,
+      }
+      const result = await apiClient.createZone(backendData)
+      mutate() // Refresh the zones list
+      return result
+    } catch (error) {
+      console.error('Failed to create zone:', error)
+      throw error
+    }
+  }, [patientId, mutate])
+
+  const updateZone = useCallback(async (zoneId: string, zoneData: Partial<Zone>) => {
+    try {
+      // Transform frontend format to backend format
+      const backendData = {
+        patient_id: zoneData.patientId || patientId,
+        name: zoneData.name,
+        type: zoneData.type || 'safe',
+        coordinates: zoneData.center ? [{ lat: zoneData.center.lat, lng: zoneData.center.lng }] : [],
+        radius: zoneData.radius || 100,
+        active: zoneData.isActive !== false,
+      }
+      const result = await apiClient.updateZone(zoneId, backendData)
+      mutate() // Refresh the zones list
+      return result
+    } catch (error) {
+      console.error('Failed to update zone:', error)
+      throw error
+    }
+  }, [patientId, mutate])
+
+  const deleteZone = useCallback(async (zoneId: string) => {
+    try {
+      await apiClient.deleteZone(zoneId)
+      mutate() // Refresh the zones list
+    } catch (error) {
+      console.error('Failed to delete zone:', error)
+      throw error
+    }
+  }, [mutate])
+
   return {
     zones: (data || []) as Zone[],
     isLoading,
     isError: error,
     mutate,
+    createZone,
+    updateZone,
+    deleteZone,
   }
 }
 

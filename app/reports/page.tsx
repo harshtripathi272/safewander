@@ -2,7 +2,7 @@ import { AppShell } from "@/components/layout/app-shell"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { FileText, Download, Calendar, Clock, MapPin, Heart, Bell, ChevronRight } from "lucide-react"
+import { FileText, Download, Calendar, Clock, MapPin, Bell, ChevronRight } from "lucide-react"
 
 const reports = [
   {
@@ -38,7 +38,6 @@ const reports = [
 const quickStats = [
   { icon: MapPin, label: "Zone Exits", value: "3", period: "This Week" },
   { icon: Bell, label: "Alerts", value: "12", period: "This Month" },
-  { icon: Heart, label: "Avg Heart Rate", value: "72 bpm", period: "Today" },
   { icon: Clock, label: "Active Hours", value: "6.5h", period: "Today" },
 ]
 
@@ -47,7 +46,7 @@ export default function ReportsPage() {
     <AppShell title="Reports">
       <div className="space-y-6">
         {/* Quick Stats */}
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-3">
           {quickStats.map((stat, i) => (
             <Card key={i} className="border-[var(--border-subtle)] bg-[var(--bg-secondary)]">
               <CardContent className="p-4">
@@ -81,10 +80,6 @@ export default function ReportsPage() {
               <Button variant="outline" className="border-[var(--border-default)] bg-transparent">
                 <Calendar className="mr-2 h-4 w-4" />
                 Monthly Report
-              </Button>
-              <Button variant="outline" className="border-[var(--border-default)] bg-transparent">
-                <Heart className="mr-2 h-4 w-4" />
-                Health Metrics
               </Button>
               <Button variant="outline" className="border-[var(--border-default)] bg-transparent">
                 <MapPin className="mr-2 h-4 w-4" />

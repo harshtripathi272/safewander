@@ -9,9 +9,34 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Checkbox } from "@/components/ui/checkbox"
 import { demoPatient } from "@/lib/data"
-import { Bell, BedDouble, AlertTriangle, DoorOpen, Heart, History, Save, Pencil, Moon, Users } from "lucide-react"
+import { Bell, BedDouble, AlertTriangle, DoorOpen, Save, Pencil, Moon, Users } from "lucide-react"
+import { toast } from "sonner"
 
 export default function SettingsPage() {
+  const handleSaveChanges = () => {
+    toast.success("Settings saved successfully", {
+      description: "Your alert preferences have been updated."
+    })
+  }
+
+  const handleAddSchedule = () => {
+    toast.info("Add Schedule", {
+      description: "Schedule configuration coming soon."
+    })
+  }
+
+  const handleHandoffShift = () => {
+    toast.info("Handoff Shift", {
+      description: "Caregiver handoff feature coming soon."
+    })
+  }
+
+  const handleEditContact = () => {
+    toast.info("Edit Contact", {
+      description: "Contact editing feature coming soon."
+    })
+  }
+
   return (
     <AppShell breadcrumb={[{ label: "Settings" }, { label: "Alerts & Preferences" }]}>
       <div className="space-y-6">
@@ -28,11 +53,7 @@ export default function SettingsPage() {
               <span className="mr-1.5 h-2 w-2 animate-pulse rounded-full bg-current" />
               System Active
             </Badge>
-            <Button variant="outline" className="border-[var(--border-default)] bg-transparent">
-              <History className="mr-2 h-4 w-4" />
-              History
-            </Button>
-            <Button className="bg-[var(--accent-primary)]">
+            <Button onClick={handleSaveChanges} className="bg-[var(--accent-primary)]">
               <Save className="mr-2 h-4 w-4" />
               Save Changes
             </Button>
@@ -46,7 +67,7 @@ export default function SettingsPage() {
             <h2 className="text-lg font-semibold text-[var(--text-primary)]">Sensor Sensitivity & Triggers</h2>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {/* Bed Exit Detection */}
             <Card className="border-[var(--border-subtle)] bg-[var(--bg-secondary)]">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -113,26 +134,6 @@ export default function SettingsPage() {
               <CardContent>
                 <CardDescription className="text-[var(--text-tertiary)]">
                   Alert when door opens or patient leaves monitored area
-                </CardDescription>
-              </CardContent>
-            </Card>
-
-            {/* Vital Signs */}
-            <Card className="border-[var(--border-subtle)] bg-[var(--bg-secondary)]">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-500/15">
-                    <Heart className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <CardTitle className="text-base text-[var(--text-primary)]">Vital Signs</CardTitle>
-                </div>
-                <Badge variant="secondary" className="bg-[var(--bg-tertiary)] text-[var(--text-tertiary)]">
-                  Not Connected
-                </Badge>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="text-[var(--text-tertiary)]">
-                  Heart rate & oxygen level monitoring
                 </CardDescription>
               </CardContent>
             </Card>
@@ -236,7 +237,7 @@ export default function SettingsPage() {
                     <p className="text-sm font-medium text-[var(--text-primary)]">Backup Contact</p>
                     <p className="text-xs text-[var(--text-tertiary)]">Dr. Emily Chen</p>
                   </div>
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" onClick={handleEditContact}>
                     <Pencil className="h-4 w-4" />
                   </Button>
                 </div>
@@ -257,7 +258,11 @@ export default function SettingsPage() {
                 <p className="text-xs text-[var(--text-tertiary)]">Every Day</p>
               </div>
 
-              <Button variant="outline" className="w-full border-[var(--border-default)] bg-transparent">
+              <Button 
+                variant="outline" 
+                className="w-full border-[var(--border-default)] bg-transparent"
+                onClick={handleAddSchedule}
+              >
                 + Add New Schedule
               </Button>
 
@@ -267,7 +272,12 @@ export default function SettingsPage() {
                   <span className="text-sm text-[var(--text-secondary)]">Caregiver Handoff</span>
                 </div>
                 <p className="mt-1 text-sm font-medium text-[var(--text-primary)]">Current: Sarah Jenkins</p>
-                <Button variant="outline" size="sm" className="mt-2 border-[var(--border-default)] bg-transparent">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="mt-2 border-[var(--border-default)] bg-transparent"
+                  onClick={handleHandoffShift}
+                >
                   Handoff Shift
                 </Button>
               </div>

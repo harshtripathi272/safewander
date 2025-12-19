@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from typing import List
 from database import get_db, Emergency, Patient, Activity
 from schemas import EmergencyCreate, EmergencyResponse
@@ -171,3 +171,32 @@ async def update_search_radius(
     
     await db.commit()
     return {"message": "Search radius updated successfully"}
+
+@router.delete("/clear")
+async def clear_all_emergencies(
+    patient_id: str = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """Clear all emergencies or emergencies for a specific patient"""
+    if patient_id:
+        # Delete emergencies for specific patient
+        await db.execute(delete(Emergency).where(Emergency.patient_id == patient_id))
+        
+        # Reset patient status
+        result = await db.execute(select(Patient).where(Patient.id == patient_id))
+        patient = result.scalar_one_or_none()
+        if patient:
+            patient.status = "safe"
+    else:
+        # Delete all emergencies
+        await db.execute(delete(Emergency))
+        
+        # Reset all patients' status
+        result = await db.execute(select(Patient))
+        patients = result.scalars().all()
+        for patient in patients:
+            if patient.status == "emergency":
+                patient.status = "safe"
+    
+    await db.commit()
+    return {"message": "Emergencies cleared successfully"}

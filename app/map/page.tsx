@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo, useEffect } from "react"
 import dynamic from "next/dynamic"
+import Link from "next/link"
 import { AppShell } from "@/components/layout/app-shell"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -14,10 +15,12 @@ import { demoPatient, demoZones } from "@/lib/data"
 import { cn } from "@/lib/utils"
 import { usePatients } from "@/lib/hooks/use-patients"
 import { useZones } from "@/lib/hooks/use-tracking"
+import { calculateZoneInfo, getStatusConfig, ZONE_COLORS } from "@/lib/zone-utils"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -60,28 +63,21 @@ const Popup = dynamic(
 )
 const MapUpdaterComponent = dynamic(() => import("./map-updater"), { ssr: false })
 const MapIcons = dynamic(() => import("./map-icons"), { ssr: false })
-
-// Zone colors from ALGORITHM_SPEC.md
-const ZONE_COLORS: Record<string, string> = {
-  safe: "#10b981",       // 🟢 Green
-  buffer: "#3b82f6",     // 🔵 Blue
-  danger: "#ef4444",     // 🔴 Red
-  restricted: "#f97316", // 🟠 Orange
-  routine: "#8b5cf6",    // Purple
-}
+const MapCoordinateTracker = dynamic(() => import("./map-coordinate-tracker"), { ssr: false })
 
 export default function MapPage() {
   const { patients, isLoading: patientsLoading } = usePatients()
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null)
   const [editZonesOpen, setEditZonesOpen] = useState(false)
   const [editingZone, setEditingZone] = useState<Zone | null>(null)
-  const [localZones, setLocalZones] = useState<Zone[]>(demoZones)
+  const [isSaving, setIsSaving] = useState(false)
   
   const selectedPatient = patients.find(p => p.id === selectedPatientId) || patients[0] || demoPatient
-  const { zones: apiZones } = useZones(selectedPatient?.id)
+  const { zones: apiZones, createZone, updateZone, deleteZone: deleteZoneApi, mutate: mutateZones } = useZones(selectedPatient?.id)
   
-  // ALWAYS show zones - use local state which falls back to demo zones
-  const displayZones = localZones.length > 0 ? localZones : demoZones
+  // Use API zones if available, otherwise fall back to demoZones
+  // This ensures consistency with the dashboard
+  const displayZones = apiZones.length > 0 ? apiZones : demoZones
 
   // San Francisco coordinates (matching zones)
   const patientLat = selectedPatient?.currentPosition?.lat ?? 37.7749
@@ -89,20 +85,65 @@ export default function MapPage() {
   const homeLat = 37.7749
   const homeLng = -122.4194
 
-  // Handle zone editing
-  const handleSaveZone = (zone: Zone) => {
-    if (editingZone) {
-      // Update existing zone
-      setLocalZones(prev => prev.map(z => z.id === zone.id ? zone : z))
-    } else {
-      // Add new zone
-      setLocalZones(prev => [...prev, { ...zone, id: `zone-${Date.now()}` }])
-    }
-    setEditingZone(null)
+  // Calculate zone info for selected patient using SINGLE SOURCE OF TRUTH
+  const selectedPatientZoneInfo = useMemo(() => {
+    return calculateZoneInfo(patientLat, patientLng, displayZones)
+  }, [patientLat, patientLng, displayZones])
+
+  const selectedPatientStatus = selectedPatientZoneInfo.status
+  const selectedPatientStatusConfig = getStatusConfig(selectedPatientStatus)
+
+  // Helper to get status for any patient based on their position
+  const getPatientStatus = (patient: typeof selectedPatient) => {
+    if (!patient?.currentPosition) return 'safe'
+    const zoneInfo = calculateZoneInfo(
+      patient.currentPosition.lat ?? 37.7749,
+      patient.currentPosition.lng ?? -122.4194,
+      displayZones
+    )
+    return zoneInfo.status
   }
 
-  const handleDeleteZone = (zoneId: string) => {
-    setLocalZones(prev => prev.filter(z => z.id !== zoneId))
+  // Handle zone editing - now calls API
+  const handleSaveZone = async (zone: Zone) => {
+    setIsSaving(true)
+    try {
+      // Check if this is a real zone from the API (UUID format) vs demo zone or new zone
+      const isExistingApiZone = zone.id && 
+        !zone.id.startsWith('zone-') && 
+        zone.id.length > 10 && 
+        zone.id.includes('-')
+      
+      if (isExistingApiZone) {
+        // Update existing zone (has a real UUID from backend)
+        await updateZone(zone.id, {
+          ...zone,
+          patientId: zone.patientId || selectedPatient?.id,
+        })
+      } else {
+        // Create new zone (either new zone with empty id, or demo zone being saved)
+        await createZone({
+          ...zone,
+          id: undefined, // Let backend generate the ID
+          patientId: selectedPatient?.id,
+        })
+      }
+      setEditingZone(null)
+    } catch (error) {
+      console.error('Failed to save zone:', error)
+      alert('Failed to save zone. Please try again.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleDeleteZone = async (zoneId: string) => {
+    try {
+      await deleteZoneApi(zoneId)
+    } catch (error) {
+      console.error('Failed to delete zone:', error)
+      alert('Failed to delete zone. Please try again.')
+    }
   }
 
   const handleAddNewZone = () => {
@@ -131,84 +172,118 @@ export default function MapPage() {
     )
   }
 
+  // Show empty state if no patients
+  if (!selectedPatient || patients.length === 0) {
+    return (
+      <AppShell title="Live Map">
+        <div className="flex h-96 flex-col items-center justify-center gap-6">
+          <div className="text-center">
+            <MapPin className="h-16 w-16 text-[var(--text-tertiary)] mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-[var(--text-primary)]">No Patients to Track</h2>
+            <p className="mt-2 text-[var(--text-secondary)]">
+              Add a patient first to view their location on the map
+            </p>
+          </div>
+          <Link href="/patients">
+            <Button className="bg-[var(--accent-primary)]">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Patient
+            </Button>
+          </Link>
+        </div>
+      </AppShell>
+    )
+  }
+
   return (
     <AppShell title="Live Map">
       <div className="space-y-4">
-        {/* Filters and Patient Selector */}
-        <div className="flex flex-wrap items-center gap-4">
-          {patients.length > 0 && (
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-[var(--text-tertiary)]" />
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <Avatar className="h-5 w-5">
-                      <AvatarImage src={selectedPatient.photo || "/placeholder.svg"} />
-                      <AvatarFallback>
-                        {selectedPatient.firstName[0]}{selectedPatient.lastName[0]}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm">{selectedPatient.firstName} {selectedPatient.lastName}</span>
-                    <ChevronDown className="h-3 w-3 text-[var(--text-tertiary)]" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-64">
-                  {patients.map((patient) => (
-                    <DropdownMenuItem
-                      key={patient.id}
-                      onClick={() => setSelectedPatientId(patient.id)}
-                      className="gap-3 cursor-pointer"
-                    >
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={patient.photo || "/placeholder.svg"} />
+        {/* Patient Selector Card */}
+        <Card className="border-[var(--border-subtle)] bg-[var(--bg-secondary)]">
+          <CardContent className="p-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <Users className="h-5 w-5 text-[var(--accent-primary)]" />
+                <span className="text-sm font-medium text-[var(--text-secondary)]">Tracking:</span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="gap-2 h-10">
+                      <Avatar className="h-6 w-6">
+                        <AvatarImage src={selectedPatient.photo || "/placeholder.svg"} />
                         <AvatarFallback>
-                          {patient.firstName[0]}{patient.lastName[0]}
+                          {selectedPatient.firstName?.[0]}{selectedPatient.lastName?.[0]}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="flex-1">
-                        <p className="font-medium">{patient.firstName} {patient.lastName}</p>
-                        <p className="text-xs text-[var(--text-tertiary)]">
-                          {patient.device?.id || "No device"}
-                        </p>
-                      </div>
-                      {patient.id === selectedPatient.id && (
-                        <Badge variant="secondary" className="ml-2">Active</Badge>
-                      )}
+                      <span className="font-medium">{selectedPatient.firstName} {selectedPatient.lastName}</span>
+                      <Badge className={selectedPatientStatusConfig.className} style={{ marginLeft: '4px' }}>
+                        {selectedPatientStatus.toUpperCase()}
+                      </Badge>
+                      <ChevronDown className="h-4 w-4 text-[var(--text-tertiary)]" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-72">
+                    {patients.map((patient) => {
+                      const patientStatus = getPatientStatus(patient)
+                      const statusConfig = getStatusConfig(patientStatus)
+                      return (
+                        <DropdownMenuItem
+                          key={patient.id}
+                          onClick={() => setSelectedPatientId(patient.id)}
+                          className="gap-3 cursor-pointer p-3"
+                        >
+                          <Avatar className="h-10 w-10">
+                            <AvatarImage src={patient.photo || "/placeholder.svg"} />
+                            <AvatarFallback>
+                              {patient.firstName?.[0]}{patient.lastName?.[0]}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <p className="font-medium">{patient.firstName} {patient.lastName}</p>
+                            <p className="text-xs text-[var(--text-tertiary)]">
+                              {patient.device?.id || "No device"} • Battery: {patient.device?.batteryLevel || 100}%
+                            </p>
+                          </div>
+                          <Badge className={statusConfig.className}>
+                            {patientStatus.toUpperCase()}
+                          </Badge>
+                        </DropdownMenuItem>
+                      )
+                    })}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href="/patients" className="gap-2 cursor-pointer p-3">
+                        <Plus className="h-4 w-4" />
+                        <span>Add New Patient</span>
+                      </Link>
                     </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
 
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
-            <Input
-              placeholder="Search patient or zone..."
-              className="h-10 border-[var(--border-default)] bg-[var(--bg-tertiary)] pl-9"
-            />
-          </div>
-          <div className="flex gap-2">
-            <Button variant="secondary" className="bg-[var(--accent-primary-muted)] text-[var(--accent-primary)]">
-              All Zones
-            </Button>
-            <Button variant="outline" className="border-[var(--border-default)] text-[var(--text-secondary)] bg-transparent">
-              <span className="mr-2 h-2 w-2 rounded-full bg-[#10b981]" />
-              Safe
-            </Button>
-            <Button variant="outline" className="border-[var(--border-default)] text-[var(--text-secondary)] bg-transparent">
-              <span className="mr-2 h-2 w-2 rounded-full bg-[#f97316]" />
-              Restricted
-            </Button>
-            <Button variant="outline" className="border-[var(--border-default)] text-[var(--text-secondary)] bg-transparent">
-              <span className="mr-2 h-2 w-2 rounded-full bg-[#ef4444]" />
-              Danger
-            </Button>
-          </div>
-        </div>
+              {/* Zone Filter Buttons */}
+              <div className="flex gap-2">
+                <Button variant="secondary" size="sm" className="bg-[var(--accent-primary-muted)] text-[var(--accent-primary)]">
+                  All Zones
+                </Button>
+                <Button variant="outline" size="sm" className="border-[var(--border-default)] text-[var(--text-secondary)] bg-transparent">
+                  <span className="mr-2 h-2 w-2 rounded-full bg-[#10b981]" />
+                  Safe
+                </Button>
+                <Button variant="outline" size="sm" className="border-[var(--border-default)] text-[var(--text-secondary)] bg-transparent">
+                  <span className="mr-2 h-2 w-2 rounded-full bg-[#f97316]" />
+                  Restricted
+                </Button>
+                <Button variant="outline" size="sm" className="border-[var(--border-default)] text-[var(--text-secondary)] bg-transparent">
+                  <span className="mr-2 h-2 w-2 rounded-full bg-[#ef4444]" />
+                  Danger
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Full Map */}
-        <div className="relative h-[calc(100vh-220px)] overflow-hidden rounded-xl border border-[var(--border-subtle)]">
+        <div className="relative h-[calc(100vh-260px)] overflow-hidden rounded-xl border border-[var(--border-subtle)]">
           <MapContainer
             center={[patientLat, patientLng]}
             zoom={16}
@@ -263,9 +338,10 @@ export default function MapPage() {
               patientLat={patientLat}
               patientLng={patientLng}
               patient={selectedPatient}
-              zones={[]}
+              zones={displayZones}
               zoneColors={ZONE_COLORS}
             />
+            <MapCoordinateTracker />
           </MapContainer>
 
           {/* Active Geofences Card - Only card on the map */}

@@ -243,6 +243,26 @@ async def create_zone(zone: ZoneCreate, db: AsyncSession = Depends(get_db)):
     await db.refresh(db_zone)
     return db_zone
 
+@router.put("/zones/{zone_id}", response_model=ZoneResponse)
+async def update_zone(zone_id: str, zone: ZoneCreate, db: AsyncSession = Depends(get_db)):
+    """Update an existing zone"""
+    result = await db.execute(select(Zone).where(Zone.id == zone_id))
+    db_zone = result.scalar_one_or_none()
+    
+    if not db_zone:
+        raise HTTPException(status_code=404, detail="Zone not found")
+    
+    # Update zone fields
+    db_zone.name = zone.name
+    db_zone.type = zone.type
+    db_zone.coordinates = zone.coordinates
+    db_zone.radius = zone.radius
+    db_zone.active = zone.active if zone.active is not None else True
+    
+    await db.commit()
+    await db.refresh(db_zone)
+    return db_zone
+
 @router.delete("/zones/{zone_id}")
 async def delete_zone(zone_id: str, db: AsyncSession = Depends(get_db)):
     """Delete a zone"""

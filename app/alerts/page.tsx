@@ -12,7 +12,25 @@ import { usePatients } from "@/lib/hooks/use-patients"
 import { useAlerts } from "@/lib/hooks/use-alerts"
 import { apiClient } from "@/lib/api-client"
 import { SimulationPanel } from "@/components/dashboard/simulation-panel"
-import { Bell, MapPin, Heart, Check, AlertTriangle, History, Video, Activity } from "lucide-react"
+import { Bell, MapPin, Heart, Check, AlertTriangle, History, Video, Activity, Users, ChevronDown, Trash2 } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { toast } from "sonner"
 
 const alertIcons: Record<string, any> = {
   geofence: MapPin,
@@ -39,8 +57,11 @@ function formatTime(timestamp: string) {
 
 export default function AlertsPage() {
   const { patients } = usePatients()
-  const primaryPatient = patients[0]
-  const { alerts, isLoading, mutate } = useAlerts(primaryPatient?.id)
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null)
+  
+  // Use selected patient or first patient as default
+  const selectedPatient = patients.find(p => p.id === selectedPatientId) || patients[0]
+  const { alerts, isLoading, mutate } = useAlerts(selectedPatient?.id)
 
   const [selectedAlert, setSelectedAlert] = useState<any>(null)
   const [filter, setFilter] = useState("all")
@@ -101,6 +122,18 @@ export default function AlertsPage() {
     }
   }
 
+  const handleClearAllAlerts = async () => {
+    try {
+      await apiClient.clearAlerts(selectedPatient?.id)
+      await mutate(undefined, { revalidate: true })
+      setSelectedAlert(null)
+      toast.success("All alerts cleared successfully")
+    } catch (error) {
+      console.error("[Alerts] Error clearing alerts:", error)
+      toast.error("Failed to clear alerts")
+    }
+  }
+
   if (isLoading) {
     return (
       <AppShell breadcrumb={[{ label: "Alerts & Timeline" }]}>
@@ -114,7 +147,7 @@ export default function AlertsPage() {
     )
   }
 
-  if (!primaryPatient) {
+  if (!selectedPatient) {
     return (
       <AppShell breadcrumb={[{ label: "Alerts & Timeline" }]}>
         <div className="flex h-96 items-center justify-center">
@@ -127,6 +160,88 @@ export default function AlertsPage() {
   return (
     <AppShell breadcrumb={[{ label: "Alerts & Timeline" }]}>
       <div className="space-y-6">
+        {/* Patient Selector */}
+        {patients.length > 0 && (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Users className="h-5 w-5 text-[var(--text-tertiary)]" />
+              <span className="text-sm font-medium text-[var(--text-secondary)]">Viewing Alerts for:</span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="gap-2">
+                    <Avatar className="h-6 w-6">
+                      <AvatarImage src={selectedPatient.photo || "/placeholder.svg"} />
+                      <AvatarFallback>
+                        {selectedPatient.firstName[0]}{selectedPatient.lastName[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span>{selectedPatient.firstName} {selectedPatient.lastName}</span>
+                    <ChevronDown className="h-4 w-4 text-[var(--text-tertiary)]" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-64">
+                  {patients.map((patient) => (
+                    <DropdownMenuItem
+                      key={patient.id}
+                      onClick={() => {
+                        setSelectedPatientId(patient.id)
+                        setSelectedAlert(null)
+                      }}
+                      className="gap-3 cursor-pointer"
+                    >
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={patient.photo || "/placeholder.svg"} />
+                        <AvatarFallback>
+                          {patient.firstName[0]}{patient.lastName[0]}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <p className="font-medium">{patient.firstName} {patient.lastName}</p>
+                        <p className="text-xs text-[var(--text-tertiary)]">
+                          {patient.device?.id || "No device"}
+                        </p>
+                      </div>
+                      {patient.id === selectedPatient.id && (
+                        <Badge variant="secondary" className="ml-2">Active</Badge>
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            {/* Clear All Button */}
+            {alerts.length > 0 && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" className="border-red-500/50 text-red-500 hover:bg-red-500/10">
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Clear All Alerts
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Clear All Alerts?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete all alerts for {selectedPatient.firstName} {selectedPatient.lastName}. 
+                      This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={handleClearAllAlerts}
+                      className="bg-red-500 hover:bg-red-600"
+                    >
+                      Clear All
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
+        )}
+
         {/* Patient Context Bar */}
         <Card className="border-[var(--border-subtle)] bg-[var(--bg-secondary)]">
           <CardContent className="flex flex-wrap items-center justify-between gap-4 p-4">
@@ -134,28 +249,28 @@ export default function AlertsPage() {
               <Avatar className="h-14 w-14 border-2 border-[var(--status-safe)]">
                 <AvatarImage
                   src={
-                    primaryPatient.photo && primaryPatient.photo !== "string"
-                      ? primaryPatient.photo
+                    selectedPatient.photo && selectedPatient.photo !== "string"
+                      ? selectedPatient.photo
                       : "/placeholder.svg"
                   }
                 />
                 <AvatarFallback>
-                  {primaryPatient.firstName[0]}
-                  {primaryPatient.lastName[0]}
+                  {selectedPatient.firstName[0]}
+                  {selectedPatient.lastName[0]}
                 </AvatarFallback>
               </Avatar>
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-semibold text-[var(--text-primary)]">{primaryPatient.firstName} {primaryPatient.lastName}</h2>
+                  <h2 className="text-lg font-semibold text-[var(--text-primary)]">{selectedPatient.firstName} {selectedPatient.lastName}</h2>
                   <Badge className="bg-[var(--accent-primary-muted)] text-[var(--status-safe)] uppercase">
                     Monitoring Active
                   </Badge>
                 </div>
                 {/* Battery status and location */}
                 <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-                  <span>Zone: {primaryPatient.currentZone}</span>
+                  <span>Zone: {selectedPatient.currentZone}</span>
                   <span>•</span>
-                  <span>Battery: {primaryPatient.device.batteryLevel}%</span>
+                  <span>Battery: {selectedPatient.device.batteryLevel}%</span>
                 </div>
               </div>
             </div>
@@ -346,7 +461,7 @@ export default function AlertsPage() {
 
           {/* Simulation Panel - Only in development */}
           {process.env.NODE_ENV === 'development' && (
-            <SimulationPanel patientId={primaryPatient.id} />
+            <SimulationPanel patientId={selectedPatient.id} />
           )}
         </div>
       </div>

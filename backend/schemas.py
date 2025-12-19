@@ -170,6 +170,7 @@ class ZoneCreate(BaseModel):
     type: str
     coordinates: Optional[List[Dict[str, float]]] = None
     radius: Optional[float] = None
+    active: Optional[bool] = True
 
 class ZoneResponse(ZoneCreate):
     id: str

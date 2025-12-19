@@ -1,17 +1,40 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { demoPatient } from "@/lib/data"
-import { Shield, X, Clock, Battery, MapPin, Phone, Share2, Bell, User, Shirt, Heart, Sparkles } from "lucide-react"
+import { usePatients } from "@/lib/hooks/use-patients"
+import { apiClient } from "@/lib/api-client"
+import { Shield, X, Clock, Battery, MapPin, Phone, Share2, Bell, User, Shirt, Heart, Sparkles, Users, ChevronDown, Trash2 } from "lucide-react"
 import { toast } from "sonner"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 export default function EmergencyPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const { patients, isLoading } = usePatients()
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null)
+  
+  // Use selected patient or first patient as default
+  const selectedPatient = patients.find(p => p.id === selectedPatientId) || patients[0]
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -118,12 +141,12 @@ export default function EmergencyPage() {
   }
 
   const handleShareLink = async () => {
-    const shareUrl = `${window.location.origin}/track/${demoPatient.id}`
+    const shareUrl = `${window.location.origin}/track/${selectedPatient?.id}`
     
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `Emergency: ${demoPatient.firstName} ${demoPatient.lastName}`,
+          title: `Emergency: ${selectedPatient?.firstName} ${selectedPatient?.lastName}`,
           text: 'Track missing person location in real-time',
           url: shareUrl
         })
@@ -147,6 +170,35 @@ export default function EmergencyPage() {
     // In production: Call API to send notifications
   }
 
+  const handleClearEmergencies = async () => {
+    try {
+      await apiClient.clearEmergencies(selectedPatient?.id)
+      toast.success("All emergencies cleared successfully")
+    } catch (error) {
+      console.error("[Emergency] Error clearing emergencies:", error)
+      toast.error("Failed to clear emergencies")
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
+        <div className="text-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--accent-primary)] border-t-transparent mx-auto" />
+          <p className="mt-4 text-[var(--text-secondary)]">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!selectedPatient) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
+        <p className="text-[var(--text-secondary)]">No patients found</p>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-[var(--bg-primary)]">
       {/* Emergency Header */}
@@ -158,17 +210,93 @@ export default function EmergencyPage() {
           <span className="text-lg font-semibold text-[var(--text-primary)]">SafeWander</span>
         </div>
 
+        {/* Patient Selector */}
+        {patients.length > 0 && (
+          <div className="flex items-center gap-3">
+            <Users className="h-4 w-4 text-[var(--text-tertiary)]" />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2 border-red-500/30 bg-transparent">
+                  <Avatar className="h-5 w-5">
+                    <AvatarImage src={selectedPatient.photo || "/placeholder.svg"} />
+                    <AvatarFallback>
+                      {selectedPatient.firstName[0]}{selectedPatient.lastName[0]}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm">{selectedPatient.firstName} {selectedPatient.lastName}</span>
+                  <ChevronDown className="h-3 w-3 text-[var(--text-tertiary)]" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" className="w-64">
+                {patients.map((patient) => (
+                  <DropdownMenuItem
+                    key={patient.id}
+                    onClick={() => setSelectedPatientId(patient.id)}
+                    className="gap-3 cursor-pointer"
+                  >
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={patient.photo || "/placeholder.svg"} />
+                      <AvatarFallback>
+                        {patient.firstName[0]}{patient.lastName[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <p className="font-medium">{patient.firstName} {patient.lastName}</p>
+                      <p className="text-xs text-[var(--text-tertiary)]">
+                        {patient.device?.id || "No device"}
+                      </p>
+                    </div>
+                    {patient.id === selectedPatient.id && (
+                      <Badge variant="secondary" className="ml-2">Active</Badge>
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
+
         <Badge className="animate-pulse bg-red-600 px-4 py-1.5 text-sm text-white">
           <span className="mr-2 inline-block h-2 w-2 rounded-full bg-white" />
           EMERGENCY ACTIVE
         </Badge>
 
-        <Link href="/">
-          <Button variant="outline" className="border-[var(--border-default)] bg-transparent">
-            <X className="mr-2 h-4 w-4" />
-            Exit Mode
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          {/* Clear Emergencies Button */}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm" className="border-red-500/50 text-red-400 hover:bg-red-500/10 bg-transparent">
+                <Trash2 className="mr-2 h-4 w-4" />
+                Clear
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Clear All Emergencies?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will deactivate all emergency states for {selectedPatient.firstName} {selectedPatient.lastName}. 
+                  Make sure the patient has been found safely before proceeding.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={handleClearEmergencies}
+                  className="bg-red-500 hover:bg-red-600"
+                >
+                  Clear All
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <Link href="/">
+            <Button variant="outline" className="border-[var(--border-default)] bg-transparent">
+              <X className="mr-2 h-4 w-4" />
+              Exit Mode
+            </Button>
+          </Link>
+        </div>
       </header>
 
       <div className="flex">
@@ -187,15 +315,17 @@ export default function EmergencyPage() {
             {/* Photo */}
             <div className="flex justify-center">
               <Avatar className="h-36 w-36 border-4 border-red-500">
-                <AvatarImage src={demoPatient.photo || "/placeholder.svg"} />
-                <AvatarFallback className="text-3xl">ER</AvatarFallback>
+                <AvatarImage src={selectedPatient.photo || "/placeholder.svg"} />
+                <AvatarFallback className="text-3xl">
+                  {selectedPatient.firstName[0]}{selectedPatient.lastName[0]}
+                </AvatarFallback>
               </Avatar>
             </div>
 
             {/* Name & Status */}
             <div className="text-center">
               <h1 className="text-2xl font-bold text-[var(--text-primary)]">
-                {demoPatient.firstName} {demoPatient.lastName}
+                {selectedPatient.firstName} {selectedPatient.lastName}
               </h1>
               <p className="mt-1 text-[var(--status-urgent)]">Left Geo-Fence 14m ago</p>
               <p className="text-sm text-[var(--text-tertiary)]">Last seen 10:42 PM</p>
@@ -210,7 +340,9 @@ export default function EmergencyPage() {
               </div>
               <div className="rounded-lg bg-[var(--bg-tertiary)] p-3 text-center">
                 <Battery className="mx-auto h-5 w-5 text-[var(--status-safe)]" />
-                <p className="mt-1 text-lg font-bold text-[var(--text-primary)]">82%</p>
+                <p className="mt-1 text-lg font-bold text-[var(--text-primary)]">
+                  {selectedPatient.device?.batteryLevel || 82}%
+                </p>
                 <p className="text-xs text-[var(--text-tertiary)]">Tracker</p>
               </div>
               <div className="rounded-lg bg-[var(--bg-tertiary)] p-3 text-center">
@@ -225,7 +357,7 @@ export default function EmergencyPage() {
               <div className="flex items-center gap-3">
                 <User className="h-4 w-4 text-[var(--text-tertiary)]" />
                 <span className="text-sm text-[var(--text-secondary)]">
-                  {demoPatient.height} / {demoPatient.weight}
+                  {selectedPatient.height || "5'8\""} / {selectedPatient.weight || "165 lbs"}
                 </span>
               </div>
               <div className="flex items-center gap-3">
@@ -238,7 +370,9 @@ export default function EmergencyPage() {
               </div>
               <div className="flex items-center gap-3">
                 <Sparkles className="h-4 w-4 text-[var(--text-tertiary)]" />
-                <span className="text-sm text-[var(--text-secondary)]">{demoPatient.distinguishingFeatures}</span>
+                <span className="text-sm text-[var(--text-secondary)]">
+                  {selectedPatient.distinguishingFeatures || "Silver hair, glasses"}
+                </span>
               </div>
             </div>
 
@@ -251,8 +385,8 @@ export default function EmergencyPage() {
                 {[
                   { text: "Geo-fence Exit Alert", time: "10:42 PM", color: "text-red-400" },
                   { text: "Motion Detected - Front Door", time: "10:41 PM", color: "text-orange-400" },
-                  { text: "Heart Rate Spike (95 bpm)", time: "10:40 PM", color: "text-amber-400" },
                   { text: "Left Living Room", time: "10:38 PM", color: "text-blue-400" },
+                  { text: "Entered Kitchen", time: "10:30 PM", color: "text-blue-400" },
                 ].map((event, i) => (
                   <div key={i} className="flex items-center justify-between rounded bg-[var(--bg-tertiary)] px-3 py-2">
                     <div className="flex items-center gap-2">
