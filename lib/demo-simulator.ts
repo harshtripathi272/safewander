@@ -14,17 +14,17 @@ const LOCATIONS = {
   bedroom: { lat: 37.7748, lng: -122.4194, name: "Bedroom" },
   backyard: { lat: 37.7747, lng: -122.4190, name: "Backyard Garden" },
   frontPorch: { lat: 37.7750, lng: -122.4194, name: "Front Porch" },
-  
+
   // Buffer Zone Locations (50-100m from home)
   sidewalk: { lat: 37.7752, lng: -122.4192, name: "Sidewalk" },
   neighborYard: { lat: 37.7751, lng: -122.4189, name: "Neighbor's Yard" },
   mailbox: { lat: 37.7753, lng: -122.4194, name: "Community Mailbox" },
-  
+
   // Outside Safe Zone (100-200m from home)
   parkEntrance: { lat: 37.7758, lng: -122.4185, name: "Oakwood Park Entrance" },
   parkBench: { lat: 37.7760, lng: -122.4180, name: "Park Bench" },
   playground: { lat: 37.7762, lng: -122.4178, name: "Playground Area" },
-  
+
   // Danger Zone Approaches (near Main Road)
   crosswalk: { lat: 37.7765, lng: -122.4175, name: "Crosswalk" },
   busStop: { lat: 37.7768, lng: -122.4172, name: "Bus Stop" },
@@ -93,7 +93,7 @@ export class DemoSimulator {
       // ════════════════════════════════════════════════════════════════
       // PHASE 1: Morning Routine (09:00 - 09:25) - SAFE STATE
       // ════════════════════════════════════════════════════════════════
-      
+
       this.log('09:00', '🛏️  Eleanor wakes up in bedroom')
       this.log('09:00', '   Status: SAFE | Risk: 0 | Location: Bedroom')
       await this.movePatient(patientId, LOCATIONS.bedroom, 0)
@@ -117,7 +117,7 @@ export class DemoSimulator {
       // ════════════════════════════════════════════════════════════════
       // PHASE 2: Leaving Safe Zone (09:30 - 09:40) - ADVISORY STATE
       // ════════════════════════════════════════════════════════════════
-      
+
       console.log('')
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
       this.log('09:30', '📬 Eleanor sees neighbor and walks toward mailbox')
@@ -135,7 +135,7 @@ export class DemoSimulator {
       // ════════════════════════════════════════════════════════════════
       // PHASE 3: Wandering Detected (09:40 - 09:50) - WARNING STATE
       // ════════════════════════════════════════════════════════════════
-      
+
       console.log('')
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
       this.log('09:40', '⏱️  5 MINUTES OUTSIDE SAFE ZONE')
@@ -160,7 +160,7 @@ export class DemoSimulator {
       // ════════════════════════════════════════════════════════════════
       // PHASE 4: Approaching Danger (09:50 - 09:55) - URGENT STATE
       // ════════════════════════════════════════════════════════════════
-      
+
       console.log('')
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
       this.log('09:50', '🚨 Eleanor walking toward Main Road!')
@@ -180,7 +180,7 @@ export class DemoSimulator {
       // ════════════════════════════════════════════════════════════════
       // PHASE 5: Emergency (09:55 - 10:00) - EMERGENCY STATE
       // ════════════════════════════════════════════════════════════════
-      
+
       console.log('')
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
       this.log('09:55', '🆘 PATIENT AT MAIN ROAD - DANGER ZONE!')
@@ -198,7 +198,7 @@ export class DemoSimulator {
       this.log('09:57', '   • Search radius calculated: 450m')
       this.log('09:57', '   • Emergency contacts notified')
       this.log('09:57', '   • Last known location broadcast')
-      
+
       // Trigger emergency
       await this.triggerEmergency(patientId)
       await this.sleep(TIME_SCALE * 3)
@@ -243,7 +243,7 @@ export class DemoSimulator {
    * Move patient with location data
    */
   private async movePatient(
-    patientId: string, 
+    patientId: string,
     location: { lat: number; lng: number; name?: string },
     speed: number = 0
   ) {
@@ -269,10 +269,10 @@ export class DemoSimulator {
       const progress = i / steps
       // Add slight randomness for realistic GPS
       const jitter = () => (Math.random() - 0.5) * 0.00005
-      
+
       const lat = from.lat + (to.lat - from.lat) * progress + jitter()
       const lng = from.lng + (to.lng - from.lng) * progress + jitter()
-      
+
       await apiClient.createLocation({
         patient_id: patientId,
         latitude: lat,
@@ -280,7 +280,7 @@ export class DemoSimulator {
         accuracy: 5 + Math.random() * 8,
         speed: 0.6 + Math.random() * 0.4 // 0.6-1.0 m/s walking
       })
-      
+
       await this.sleep(150) // Brief pause between steps
     }
   }
@@ -297,10 +297,10 @@ export class DemoSimulator {
       // Random direction changes indicating confusion
       const angle = (i * 90 + Math.random() * 45) * Math.PI / 180
       const distance = 0.0001 + Math.random() * 0.0001
-      
+
       const lat = center.lat + Math.cos(angle) * distance
       const lng = center.lng + Math.sin(angle) * distance
-      
+
       await apiClient.createLocation({
         patient_id: patientId,
         latitude: lat,
@@ -308,7 +308,7 @@ export class DemoSimulator {
         accuracy: 8 + Math.random() * 10,
         speed: 0.3 + Math.random() * 0.4 // Slower, hesitant
       })
-      
+
       await this.sleep(200)
     }
   }
@@ -316,7 +316,7 @@ export class DemoSimulator {
   /**
    * Trigger emergency
    */
-  private async triggerEmergency(patientId: string) {
+  public async triggerEmergency(patientId: string) {
     try {
       const emergencies = await apiClient.getEmergencies(true).catch(() => [])
       const hasActive = emergencies.some((e: any) => e.patient_id === patientId)
@@ -374,28 +374,28 @@ export class DemoSimulator {
     console.log('')
 
     const dangerLoc = LOCATIONS.mainRoad
-    
+
     // Step 1: Caregiver arrives
     this.log('10:05', '👋 Caregiver Jane arrives at Main Road')
     await this.sleep(1000)
-    
+
     // Step 2: Walk back together
     this.log('10:08', '🚶 Walking back together (supported)')
     await this.smoothMove(patientId, dangerLoc, LOCATIONS.parkEntrance, 5)
     await this.sleep(500)
-    
+
     this.log('10:12', '   Passing through park...')
     await this.smoothMove(patientId, LOCATIONS.parkEntrance, LOCATIONS.sidewalk, 4)
     await this.sleep(500)
-    
+
     this.log('10:15', '   Entering safe zone...')
     await this.smoothMove(patientId, LOCATIONS.sidewalk, LOCATIONS.frontPorch, 4)
     await this.sleep(500)
-    
+
     // Step 3: Home
     this.log('10:18', '🏠 Patient safely home')
     await this.smoothMove(patientId, LOCATIONS.frontPorch, HOME, 3)
-    
+
     console.log('')
     console.log('✅ Patient returned safely')
     console.log('📊 FSM should de-escalate: EMERGENCY → URGENT → WARNING → ADVISORY → SAFE')
@@ -450,7 +450,7 @@ export class DemoSimulator {
       const alerts = await apiClient.getAlerts(patientId).catch(() => [])
       for (const alert of alerts) {
         if (alert.status !== 'resolved') {
-          await apiClient.resolveAlert(alert.id).catch(() => {})
+          await apiClient.resolveAlert(alert.id).catch(() => { })
         }
       }
       console.log('  ✅ Alerts resolved')
@@ -459,7 +459,7 @@ export class DemoSimulator {
       const emergencies = await apiClient.getEmergencies(true).catch(() => [])
       for (const e of emergencies) {
         if (e.patient_id === patientId) {
-          await apiClient.resolveEmergency(e.id, 'patient_found').catch(() => {})
+          await apiClient.resolveEmergency(e.id, 'patient_found').catch(() => { })
         }
       }
       console.log('  ✅ Emergencies resolved')

@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react"
 import type { Patient, Zone } from "@/lib/types"
+import { demoZones } from "@/lib/data"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -25,21 +26,21 @@ const statusConfig = {
 function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
   // Handle exact same coordinates
   if (lat1 === lat2 && lng1 === lng2) return 0
-  
+
   const R = 6371000 // Earth's radius in meters
   const dLat = (lat2 - lat1) * Math.PI / 180
   const dLng = (lng2 - lng1) * Math.PI / 180
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-            Math.sin(dLng/2) * Math.sin(dLng/2)
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
   return R * c
 }
 
 // Determine current zone based on patient position
-function getCurrentZone(patientLat: number, patientLng: number, zones: Zone[]): { 
-  zone: Zone | null; 
-  status: string; 
+function getCurrentZone(patientLat: number, patientLng: number, zones: Zone[]): {
+  zone: Zone | null;
+  status: string;
   distance: number;
   closestSafeZone: Zone | null;
   isInSafeZone: boolean;
@@ -60,7 +61,7 @@ function getCurrentZone(patientLat: number, patientLng: number, zones: Zone[]): 
   // First pass: Check all zones and find which ones the patient is inside
   for (const zone of zones) {
     if (!zone.center) continue
-    
+
     const distance = calculateDistance(patientLat, patientLng, zone.center.lat, zone.center.lng)
     const zoneRadius = zone.radius || 100
     const isInside = distance <= zoneRadius
@@ -103,7 +104,7 @@ function getCurrentZone(patientLat: number, patientLng: number, zones: Zone[]): 
 
   // Determine status based on what zones patient is in
   let status = "safe"
-  
+
   if (isInDanger) {
     status = "emergency"
   } else if (isInRestricted) {
@@ -121,7 +122,7 @@ function getCurrentZone(patientLat: number, patientLng: number, zones: Zone[]): 
     if (closestSafeZone) {
       const safeZoneRadius = closestSafeZone.radius || 50
       const distanceFromSafeEdge = minDistanceToSafeCenter - safeZoneRadius
-      
+
       if (distanceFromSafeEdge > 150) {
         status = "warning"
       } else if (distanceFromSafeEdge > 50) {
@@ -137,9 +138,9 @@ function getCurrentZone(patientLat: number, patientLng: number, zones: Zone[]): 
 
   console.log(`[ZoneResult] isInSafe=${isInSafe}, isInDanger=${isInDanger}, status=${status}, zone=${currentZone?.name}`)
 
-  return { 
-    zone: currentZone, 
-    status, 
+  return {
+    zone: currentZone,
+    status,
     distance: minDistanceToSafeCenter,
     closestSafeZone,
     isInSafeZone: isInSafe
@@ -151,11 +152,12 @@ export function PatientHeader({ patient, zones = [], currentZoneName, riskScore 
   const patientLat = patient?.currentPosition?.lat ?? 37.7749
   const patientLng = patient?.currentPosition?.lng ?? -122.4194
 
-  // Calculate zone info using useMemo - recalculates when position or zones change
+  // ALWAYS use demoZones for consistency with map display
+  // This ensures the header shows the same zone info as the map
   const currentZoneInfo = useMemo(() => {
     console.log('[PatientHeader] Recalculating zone for position:', patientLat, patientLng)
-    return getCurrentZone(patientLat, patientLng, zones)
-  }, [patientLat, patientLng, zones])
+    return getCurrentZone(patientLat, patientLng, demoZones)
+  }, [patientLat, patientLng])
 
   // Use calculated status or fall back to patient status
   const effectiveStatus = currentZoneInfo.status || patient?.status || "safe"
@@ -163,7 +165,7 @@ export function PatientHeader({ patient, zones = [], currentZoneName, riskScore 
   const device = patient?.device ?? { batteryLevel: 0, signalStrength: "none" }
 
   // Determine zone display name
-  const zoneDisplayName = currentZoneName || currentZoneInfo.zone?.name || 
+  const zoneDisplayName = currentZoneName || currentZoneInfo.zone?.name ||
     (currentZoneInfo.closestSafeZone ? `Near ${currentZoneInfo.closestSafeZone.name}` : "Unknown Location")
   const zoneType = currentZoneInfo.zone?.type || (effectiveStatus === "safe" ? "safe" : "unknown")
 
@@ -180,8 +182,8 @@ export function PatientHeader({ patient, zones = [], currentZoneName, riskScore 
   return (
     <div className={cn(
       "flex flex-wrap items-center justify-between gap-4 rounded-xl border p-6 transition-all duration-500",
-      effectiveStatus === "emergency" 
-        ? "border-red-500/50 bg-red-500/10 animate-pulse" 
+      effectiveStatus === "emergency"
+        ? "border-red-500/50 bg-red-500/10 animate-pulse"
         : effectiveStatus === "urgent"
           ? "border-orange-500/30 bg-orange-500/5"
           : effectiveStatus === "warning"
@@ -217,10 +219,10 @@ export function PatientHeader({ patient, zones = [], currentZoneName, riskScore 
           <span className={cn(
             "absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-2 border-[var(--bg-secondary)]",
             effectiveStatus === "safe" ? "bg-green-500" :
-            effectiveStatus === "advisory" ? "bg-blue-500" :
-            effectiveStatus === "warning" ? "bg-orange-500" :
-            effectiveStatus === "urgent" ? "bg-red-500" :
-            "bg-red-600 animate-ping"
+              effectiveStatus === "advisory" ? "bg-blue-500" :
+                effectiveStatus === "warning" ? "bg-orange-500" :
+                  effectiveStatus === "urgent" ? "bg-red-500" :
+                    "bg-red-600 animate-ping"
           )} />
         </div>
 
@@ -239,26 +241,26 @@ export function PatientHeader({ patient, zones = [], currentZoneName, riskScore 
               </Badge>
             )}
           </div>
-          
+
           {/* Dynamic Zone Display */}
           <div className="mt-1 flex items-center gap-2 text-sm">
             <MapPin className={cn(
               "h-4 w-4",
               zoneType === "danger" ? "text-red-500" :
-              zoneType === "restricted" ? "text-orange-500" :
-              zoneType === "safe" ? "text-green-500" :
-              zoneType === "buffer" ? "text-blue-500" :
-              zoneType === "routine" ? "text-purple-500" :
-              "text-yellow-500"
+                zoneType === "restricted" ? "text-orange-500" :
+                  zoneType === "safe" ? "text-green-500" :
+                    zoneType === "buffer" ? "text-blue-500" :
+                      zoneType === "routine" ? "text-purple-500" :
+                        "text-yellow-500"
             )} />
             <span className={cn(
               "font-medium",
               zoneType === "danger" ? "text-red-500" :
-              zoneType === "restricted" ? "text-orange-500" :
-              zoneType === "safe" ? "text-green-500" :
-              zoneType === "buffer" ? "text-blue-500" :
-              zoneType === "routine" ? "text-purple-500" :
-              "text-yellow-500"
+                zoneType === "restricted" ? "text-orange-500" :
+                  zoneType === "safe" ? "text-green-500" :
+                    zoneType === "buffer" ? "text-blue-500" :
+                      zoneType === "routine" ? "text-purple-500" :
+                        "text-yellow-500"
             )}>
               {zoneDisplayName}
             </span>
@@ -281,9 +283,9 @@ export function PatientHeader({ patient, zones = [], currentZoneName, riskScore 
             <div className={cn(
               "mt-2 flex items-center gap-2 text-xs font-medium",
               effectiveStatus === "emergency" ? "text-red-500" :
-              effectiveStatus === "urgent" ? "text-orange-500" :
-              effectiveStatus === "warning" ? "text-yellow-600" :
-              "text-blue-500"
+                effectiveStatus === "urgent" ? "text-orange-500" :
+                  effectiveStatus === "warning" ? "text-yellow-600" :
+                    "text-blue-500"
             )}>
               <AlertTriangle className="h-3 w-3" />
               {effectiveStatus === "emergency" && "EMERGENCY: Patient in danger zone! Immediate action required."}
@@ -303,8 +305,8 @@ export function PatientHeader({ patient, zones = [], currentZoneName, riskScore 
               className={cn(
                 "h-4 w-4",
                 device.batteryLevel > 50 ? "text-[var(--status-safe)]" :
-                device.batteryLevel > 20 ? "text-[var(--status-warning)]" :
-                "text-[var(--status-urgent)]",
+                  device.batteryLevel > 20 ? "text-[var(--status-warning)]" :
+                    "text-[var(--status-urgent)]",
               )}
             />
             <span className="text-[var(--text-secondary)]">{device.batteryLevel}%</span>
@@ -313,8 +315,8 @@ export function PatientHeader({ patient, zones = [], currentZoneName, riskScore 
             <Signal className={cn(
               "h-4 w-4",
               device.signalStrength === "strong" ? "text-[var(--status-safe)]" :
-              device.signalStrength === "weak" ? "text-[var(--status-warning)]" :
-              "text-[var(--text-tertiary)]"
+                device.signalStrength === "weak" ? "text-[var(--status-warning)]" :
+                  "text-[var(--text-tertiary)]"
             )} />
             <span className="text-[var(--text-secondary)] capitalize">{device.signalStrength || "Unknown"}</span>
           </div>
